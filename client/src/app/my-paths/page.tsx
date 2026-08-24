@@ -38,7 +38,6 @@ export default function MyPathsPage() {
       return;
     }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router]);
 
   const handleCreate = async () => {

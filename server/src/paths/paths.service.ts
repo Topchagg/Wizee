@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPathItemDto } from './dto/add-path-item.dto';
 
@@ -21,7 +26,11 @@ export class PathsService {
     return paths
       .map((path) => {
         const itemCount = path.items.length;
-        const conceptRatio = itemCount === 0 ? 0 : path.items.filter((i) => i.itemType === 'CONCEPT').length / itemCount;
+        const conceptRatio =
+          itemCount === 0
+            ? 0
+            : path.items.filter((i) => i.itemType === 'CONCEPT').length /
+              itemCount;
         return {
           id: path.id,
           title: path.title,
@@ -63,7 +72,12 @@ export class PathsService {
           include: {
             concepts: {
               orderBy: { order: 'asc' },
-              include: { subConcepts: { orderBy: { order: 'asc' }, select: { id: true, title: true } } },
+              include: {
+                subConcepts: {
+                  orderBy: { order: 'asc' },
+                  select: { id: true, title: true },
+                },
+              },
             },
           },
         },
@@ -111,7 +125,9 @@ export class PathsService {
   }
 
   async createDraft(userId: string, title: string, description?: string) {
-    return this.prisma.learningPath.create({ data: { userId, title, description, isPublic: false } });
+    return this.prisma.learningPath.create({
+      data: { userId, title, description, isPublic: false },
+    });
   }
 
   async getDetail(pathId: string, userId: string) {
@@ -122,7 +138,10 @@ export class PathsService {
       include: {
         items: {
           orderBy: { order: 'asc' },
-          include: { theme: { select: { title: true } }, concept: { select: { title: true } } },
+          include: {
+            theme: { select: { title: true } },
+            concept: { select: { title: true } },
+          },
         },
       },
     });
@@ -136,7 +155,8 @@ export class PathsService {
         id: item.id,
         order: item.order,
         itemType: item.itemType,
-        label: item.itemType === 'THEME' ? item.theme?.title : item.concept?.title,
+        label:
+          item.itemType === 'THEME' ? item.theme?.title : item.concept?.title,
         themeId: item.themeId,
         conceptId: item.conceptId,
       })),
@@ -165,12 +185,20 @@ export class PathsService {
     });
   }
 
-  async removeItem(pathId: string, userId: string, itemId: string): Promise<void> {
+  async removeItem(
+    pathId: string,
+    userId: string,
+    itemId: string,
+  ): Promise<void> {
     await this.assertOwnership(pathId, userId);
     await this.prisma.pathItem.delete({ where: { id: itemId } });
   }
 
-  async reorderItems(pathId: string, userId: string, itemIds: string[]): Promise<void> {
+  async reorderItems(
+    pathId: string,
+    userId: string,
+    itemIds: string[],
+  ): Promise<void> {
     await this.assertOwnership(pathId, userId);
 
     // @@unique([pathId, order]) means a direct 1->2, 2->1 swap collides
@@ -178,9 +206,17 @@ export class PathsService {
     // positions first, then set final positions — neither phase can collide.
     await this.prisma.$transaction([
       ...itemIds.map((id, index) =>
-        this.prisma.pathItem.update({ where: { id }, data: { order: -1 * (index + 1) } }),
+        this.prisma.pathItem.update({
+          where: { id },
+          data: { order: -1 * (index + 1) },
+        }),
       ),
-      ...itemIds.map((id, index) => this.prisma.pathItem.update({ where: { id }, data: { order: index + 1 } })),
+      ...itemIds.map((id, index) =>
+        this.prisma.pathItem.update({
+          where: { id },
+          data: { order: index + 1 },
+        }),
+      ),
     ]);
   }
 
@@ -192,7 +228,10 @@ export class PathsService {
       throw new BadRequestException('Add at least one item before publishing');
     }
 
-    return this.prisma.learningPath.update({ where: { id: pathId }, data: { isPublic: true } });
+    return this.prisma.learningPath.update({
+      where: { id: pathId },
+      data: { isPublic: true },
+    });
   }
 
   async deletePath(pathId: string, userId: string): Promise<void> {
@@ -214,12 +253,22 @@ export class PathsService {
               include: {
                 concepts: {
                   orderBy: { order: 'asc' },
-                  include: { subConcepts: { orderBy: { order: 'asc' }, select: { id: true } } },
+                  include: {
+                    subConcepts: {
+                      orderBy: { order: 'asc' },
+                      select: { id: true },
+                    },
+                  },
                 },
               },
             },
             concept: {
-              include: { subConcepts: { orderBy: { order: 'asc' }, select: { id: true } } },
+              include: {
+                subConcepts: {
+                  orderBy: { order: 'asc' },
+                  select: { id: true },
+                },
+              },
             },
           },
         },
@@ -262,14 +311,22 @@ export class PathsService {
       select: {
         id: true,
         slug: true,
-        contents: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { id: true } },
+        contents: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          take: 1,
+          select: { id: true },
+        },
       },
     });
     const bySubConceptId = new Map(withContent.map((sc) => [sc.id, sc]));
 
     const subConcepts = subConceptIds.map((id) => {
       const sc = bySubConceptId.get(id)!;
-      return { id: sc.id, slug: sc.slug, contentId: sc.contents[0]?.id ?? null };
+      return {
+        id: sc.id,
+        slug: sc.slug,
+        contentId: sc.contents[0]?.id ?? null,
+      };
     });
 
     return { id: path.id, title: path.title, subConcepts };
@@ -300,7 +357,14 @@ export class PathsService {
                         id: true,
                         slug: true,
                         title: true,
-                        contents: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { id: true } },
+                        contents: {
+                          orderBy: [
+                            { isPrimary: 'desc' },
+                            { createdAt: 'asc' },
+                          ],
+                          take: 1,
+                          select: { id: true },
+                        },
                       },
                     },
                   },
@@ -315,7 +379,11 @@ export class PathsService {
                     id: true,
                     slug: true,
                     title: true,
-                    contents: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { id: true } },
+                    contents: {
+                      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+                      take: 1,
+                      select: { id: true },
+                    },
                   },
                 },
               },
@@ -326,15 +394,30 @@ export class PathsService {
       orderBy: { title: 'asc' },
     });
 
-    type FlatSubConcept = { id: string; slug: string; title: string; contentId: string | null };
+    type FlatSubConcept = {
+      id: string;
+      slug: string;
+      title: string;
+      contentId: string | null;
+    };
 
     const flattened = paths.map((path) => {
       const seen = new Set<string>();
       const subConcepts: FlatSubConcept[] = [];
-      const pushUnique = (sc: { id: string; slug: string; title: string; contents: { id: string }[] }) => {
+      const pushUnique = (sc: {
+        id: string;
+        slug: string;
+        title: string;
+        contents: { id: string }[];
+      }) => {
         if (!seen.has(sc.id)) {
           seen.add(sc.id);
-          subConcepts.push({ id: sc.id, slug: sc.slug, title: sc.title, contentId: sc.contents[0]?.id ?? null });
+          subConcepts.push({
+            id: sc.id,
+            slug: sc.slug,
+            title: sc.title,
+            contentId: sc.contents[0]?.id ?? null,
+          });
         }
       };
       for (const item of path.items) {
@@ -349,7 +432,9 @@ export class PathsService {
       return { path, subConcepts };
     });
 
-    const allIds = [...new Set(flattened.flatMap((f) => f.subConcepts.map((sc) => sc.id)))];
+    const allIds = [
+      ...new Set(flattened.flatMap((f) => f.subConcepts.map((sc) => sc.id))),
+    ];
     const passedAttempts = allIds.length
       ? await this.prisma.attempt.findMany({
           where: { userId, subConceptId: { in: allIds }, passed: true },
@@ -360,10 +445,14 @@ export class PathsService {
     const passedSet = new Set(passedAttempts.map((a) => a.subConceptId));
 
     return flattened.map(({ path, subConcepts }) => {
-      const passedCount = subConcepts.filter((sc) => passedSet.has(sc.id)).length;
+      const passedCount = subConcepts.filter((sc) =>
+        passedSet.has(sc.id),
+      ).length;
       // First not-yet-passed Sub-concept to resume at, or the last one (to
       // review) once everything in the path has been passed.
-      const next = subConcepts.find((sc) => !passedSet.has(sc.id)) ?? subConcepts[subConcepts.length - 1];
+      const next =
+        subConcepts.find((sc) => !passedSet.has(sc.id)) ??
+        subConcepts[subConcepts.length - 1];
       return {
         id: path.id,
         title: path.title,
@@ -384,19 +473,24 @@ export class PathsService {
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const [passedTodayCount, lastPassedAttempt, publicPaths, progress] = await Promise.all([
-      this.prisma.attempt.count({ where: { userId, passed: true, createdAt: { gte: startOfDay } } }),
-      this.prisma.attempt.findFirst({
-        where: { userId, passed: true },
-        orderBy: { createdAt: 'desc' },
-        include: { subConcept: { select: { title: true, slug: true } } },
-      }),
-      this.listPublic(),
-      this.getProgress(userId),
-    ]);
+    const [passedTodayCount, lastPassedAttempt, publicPaths, progress] =
+      await Promise.all([
+        this.prisma.attempt.count({
+          where: { userId, passed: true, createdAt: { gte: startOfDay } },
+        }),
+        this.prisma.attempt.findFirst({
+          where: { userId, passed: true },
+          orderBy: { createdAt: 'desc' },
+          include: { subConcept: { select: { title: true, slug: true } } },
+        }),
+        this.listPublic(),
+        this.getProgress(userId),
+      ]);
 
     const defaultPathId = publicPaths[0]?.id ?? null;
-    const defaultProgress = defaultPathId ? (progress.find((p) => p.id === defaultPathId) ?? null) : null;
+    const defaultProgress = defaultPathId
+      ? (progress.find((p) => p.id === defaultPathId) ?? null)
+      : null;
 
     return {
       passedToday: passedTodayCount > 0,
@@ -409,7 +503,11 @@ export class PathsService {
         : null,
       next:
         defaultProgress?.nextSlug && defaultProgress.nextContentId
-          ? { title: defaultProgress.nextTitle, slug: defaultProgress.nextSlug, contentId: defaultProgress.nextContentId }
+          ? {
+              title: defaultProgress.nextTitle,
+              slug: defaultProgress.nextSlug,
+              contentId: defaultProgress.nextContentId,
+            }
           : null,
     };
   }

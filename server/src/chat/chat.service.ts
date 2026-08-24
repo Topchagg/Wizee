@@ -37,7 +37,8 @@ export class ChatService {
 
     const lastByCounterpart = new Map<string, (typeof messages)[number]>();
     for (const message of messages) {
-      const counterpartId = message.senderId === userId ? message.recipientId : message.senderId;
+      const counterpartId =
+        message.senderId === userId ? message.recipientId : message.senderId;
       if (!lastByCounterpart.has(counterpartId)) {
         lastByCounterpart.set(counterpartId, message);
       }
@@ -48,7 +49,9 @@ export class ChatService {
       where: { id: { in: counterpartIds } },
       select: { id: true, displayName: true, email: true },
     });
-    const counterpartById = new Map(counterparts.map((user) => [user.id, user]));
+    const counterpartById = new Map(
+      counterparts.map((user) => [user.id, user]),
+    );
 
     return counterpartIds.map((id) => {
       const lastMessage = lastByCounterpart.get(id)!;

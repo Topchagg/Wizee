@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
@@ -32,17 +40,29 @@ export class SubConceptsController {
   // ':id' accepts either the raw id or the slug (resolved server-side) — the
   // /learn URL is slug-based, but this keeps old id-based links working too.
   @Get(':id/content/:contentId')
-  getContentDetail(@Param('id') id: string, @Param('contentId') contentId: string, @CurrentUser() user: User) {
+  getContentDetail(
+    @Param('id') id: string,
+    @Param('contentId') contentId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.subConcepts.getContentDetail(id, contentId, user.id);
   }
 
   @Post(':id/content')
-  addContent(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: AddContentDto) {
+  addContent(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Body() dto: AddContentDto,
+  ) {
     return this.subConcepts.addContent(id, user, dto);
   }
 
   @Post(':id/attempts')
-  submitAttempt(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: SubmitAttemptDto) {
+  submitAttempt(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Body() dto: SubmitAttemptDto,
+  ) {
     return this.subConcepts.submitAttempt(id, user.id, dto);
   }
 
@@ -74,7 +94,10 @@ export class SubConceptsController {
   }
 
   @Post(':id/watch-events')
-  recordWatchEvent(@CurrentUser() user: User, @Body() dto: RecordWatchEventDto) {
+  recordWatchEvent(
+    @CurrentUser() user: User,
+    @Body() dto: RecordWatchEventDto,
+  ) {
     return this.subConcepts.recordWatchEvent(user.id, dto);
   }
 }

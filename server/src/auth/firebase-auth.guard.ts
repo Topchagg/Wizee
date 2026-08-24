@@ -8,7 +8,10 @@ import {
 import type { Request } from 'express';
 import * as admin from 'firebase-admin';
 import { PrismaService } from '../prisma/prisma.service';
-import { FIREBASE_ADMIN, type FirebaseAppGetter } from './firebase-admin.provider';
+import {
+  FIREBASE_ADMIN,
+  type FirebaseAppGetter,
+} from './firebase-admin.provider';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
@@ -20,7 +23,9 @@ export class FirebaseAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : undefined;
 
     if (!token) {
       throw new UnauthorizedException('Missing bearer token');
@@ -42,20 +47,21 @@ export class FirebaseAuthGuard implements CanActivate {
 
     // Self-healing: first authenticated request for a Firebase user provisions
     // their app-level User row, so there's no separate "register" step to forget.
-    (request as Request & { user: unknown }).user = await this.prisma.user.upsert({
-      where: { firebaseUid: decoded.uid },
-      update: {
-        email: decoded.email,
-        displayName: decoded.name ?? null,
-        photoUrl: decoded.picture ?? null,
-      },
-      create: {
-        firebaseUid: decoded.uid,
-        email: decoded.email,
-        displayName: decoded.name,
-        photoUrl: decoded.picture,
-      },
-    });
+    (request as Request & { user: unknown }).user =
+      await this.prisma.user.upsert({
+        where: { firebaseUid: decoded.uid },
+        update: {
+          email: decoded.email,
+          displayName: (decoded.name as string | undefined) ?? null,
+          photoUrl: decoded.picture ?? null,
+        },
+        create: {
+          firebaseUid: decoded.uid,
+          email: decoded.email,
+          displayName: decoded.name as string | undefined,
+          photoUrl: decoded.picture,
+        },
+      });
 
     return true;
   }

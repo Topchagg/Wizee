@@ -1,4 +1,15 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
@@ -64,17 +75,29 @@ export class PathsController {
   }
 
   @Post(':id/items')
-  addItem(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: AddPathItemDto) {
+  addItem(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Body() dto: AddPathItemDto,
+  ) {
     return this.paths.addItem(id, user.id, dto);
   }
 
   @Delete(':id/items/:itemId')
-  removeItem(@Param('id') id: string, @Param('itemId') itemId: string, @CurrentUser() user: User) {
+  removeItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.paths.removeItem(id, user.id, itemId);
   }
 
   @Patch(':id/items/reorder')
-  reorder(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: ReorderPathItemsDto) {
+  reorder(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Body() dto: ReorderPathItemsDto,
+  ) {
     return this.paths.reorderItems(id, user.id, dto.itemIds);
   }
 

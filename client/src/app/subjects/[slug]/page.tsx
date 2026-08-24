@@ -5,18 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { toggleSetMember } from "@/lib/set-utils";
 import styles from "./page.module.css";
 
 type TreeSubConcept = { id: string; title: string; slug: string; contentCount: number; primaryContentId: string | null };
 type TreeConcept = { id: string; title: string; subConcepts: TreeSubConcept[] };
 type TreeTheme = { id: string; title: string; concepts: TreeConcept[] };
 type TreeSubject = { id: string; title: string; slug: string; themes: TreeTheme[] };
-
-function toggle(set: Set<string>, id: string): Set<string> {
-  const next = new Set(set);
-  next.has(id) ? next.delete(id) : next.add(id);
-  return next;
-}
 
 export default function SubjectTreePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -108,7 +103,7 @@ export default function SubjectTreePage() {
               <button
                 type="button"
                 className={styles.themeRow}
-                onClick={() => setExpandedThemes((prev) => toggle(prev, theme.id))}
+                onClick={() => setExpandedThemes((prev) => toggleSetMember(prev, theme.id))}
               >
                 <span className={themeOpen ? styles.chevronOpen : styles.chevron}>▸</span>
                 <span className={styles.themeTitle}>{theme.title}</span>
@@ -126,7 +121,7 @@ export default function SubjectTreePage() {
                         <button
                           type="button"
                           className={styles.conceptRow}
-                          onClick={() => setExpandedConcepts((prev) => toggle(prev, concept.id))}
+                          onClick={() => setExpandedConcepts((prev) => toggleSetMember(prev, concept.id))}
                         >
                           <span className={conceptOpen ? styles.chevronOpen : styles.chevron}>▸</span>
                           <span className={styles.conceptTitle}>{concept.title}</span>

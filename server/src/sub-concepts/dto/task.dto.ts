@@ -1,6 +1,17 @@
-import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
-const QUESTION_TYPES = ['MULTIPLE_CHOICE', 'FILL_GAP', 'CALCULATION', 'CODE_CHALLENGE'] as const;
+const QUESTION_TYPES = [
+  'MULTIPLE_CHOICE',
+  'FILL_GAP',
+  'CALCULATION',
+  'CODE_CHALLENGE',
+] as const;
 
 export class TaskDto {
   @IsIn(QUESTION_TYPES)

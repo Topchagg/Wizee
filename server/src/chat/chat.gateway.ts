@@ -8,10 +8,20 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
-import { FIREBASE_ADMIN, type FirebaseAppGetter } from '../auth/firebase-admin.provider';
+import {
+  FIREBASE_ADMIN,
+  type FirebaseAppGetter,
+} from '../auth/firebase-admin.provider';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
+
+// socket.io's `Socket.data` is untyped (`any`) unless generics are threaded
+// through @WebSocketGateway — this cast is the minimal way to read/write
+// `userId` on it without triggering unsafe-member-access.
+interface ChatSocketData {
+  userId: string;
+}
 
 // Simple direct chat, no RBAC: any authenticated user can message any other.
 // REST (ChatController) handles loading history; this handles live delivery.
@@ -45,16 +55,20 @@ export class ChatGateway implements OnGatewayConnection {
       // authenticated action could be opening the chat page.
       const user = await this.prisma.user.upsert({
         where: { firebaseUid: decoded.uid },
-        update: { email: decoded.email, displayName: decoded.name ?? null, photoUrl: decoded.picture ?? null },
+        update: {
+          email: decoded.email,
+          displayName: (decoded.name as string | undefined) ?? null,
+          photoUrl: decoded.picture ?? null,
+        },
         create: {
           firebaseUid: decoded.uid,
           email: decoded.email,
-          displayName: decoded.name,
+          displayName: decoded.name as string | undefined,
           photoUrl: decoded.picture,
         },
       });
 
-      socket.data.userId = user.id;
+      (socket.data as ChatSocketData).userId = user.id;
       await socket.join(this.roomFor(user.id));
     } catch (err) {
       this.logger.warn(`Rejected socket connection: ${(err as Error).message}`);
@@ -64,13 +78,19 @@ export class ChatGateway implements OnGatewayConnection {
 
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @SubscribeMessage('sendMessage')
-  async handleSendMessage(@ConnectedSocket() socket: Socket, @MessageBody() dto: SendMessageDto) {
-    const senderId: string = socket.data.userId;
+  async handleSendMessage(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() dto: SendMessageDto,
+  ) {
+    const senderId = (socket.data as ChatSocketData).userId;
     const message = await this.chat.sendMessage(senderId, dto);
 
     // Emit to both sides' rooms — the recipient (if connected, any tab) and
     // back to the sender (so other open tabs get the persisted message too).
-    this.server.to(this.roomFor(dto.recipientId)).to(this.roomFor(senderId)).emit('newMessage', message);
+    this.server
+      .to(this.roomFor(dto.recipientId))
+      .to(this.roomFor(senderId))
+      .emit('newMessage', message);
 
     return message;
   }

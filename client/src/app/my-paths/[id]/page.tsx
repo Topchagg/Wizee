@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { toggleSetMember } from "@/lib/set-utils";
 import styles from "./page.module.css";
 
 type PathItem = {
@@ -31,12 +32,6 @@ type SearchHit = {
   conceptId: string | null;
   conceptTitle: string | null;
 };
-
-function toggle(set: Set<string>, id: string): Set<string> {
-  const next = new Set(set);
-  next.has(id) ? next.delete(id) : next.add(id);
-  return next;
-}
 
 export default function PathBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -79,11 +74,15 @@ export default function PathBuilderPage() {
   // Debounced, scoped to whichever Subject is currently open.
   useEffect(() => {
     if (!selectedSubjectId || !query.trim()) {
-      setSearchResults(null);
-      setSearching(false);
+      // Deferred a microtask so this reset isn't a synchronous setState call
+      // in the effect body.
+      void Promise.resolve().then(() => {
+        setSearchResults(null);
+        setSearching(false);
+      });
       return;
     }
-    setSearching(true);
+    void Promise.resolve().then(() => setSearching(true));
     const handle = setTimeout(() => {
       apiFetch(`/paths/search?subjectId=${selectedSubjectId}&q=${encodeURIComponent(query.trim())}`)
         .then((res) => (res.ok ? (res.json() as Promise<SearchHit[]>) : Promise.reject()))
@@ -401,7 +400,7 @@ export default function PathBuilderPage() {
                         <button
                           type="button"
                           className={styles.themeToggle}
-                          onClick={() => setExpandedThemes((prev) => toggle(prev, theme.id))}
+                          onClick={() => setExpandedThemes((prev) => toggleSetMember(prev, theme.id))}
                         >
                           <span className={themeOpen ? styles.chevronOpen : styles.chevron}>▸</span>
                           <span className={styles.themeTitle}>{theme.title}</span>
@@ -429,7 +428,7 @@ export default function PathBuilderPage() {
                                   <button
                                     type="button"
                                     className={styles.conceptToggle}
-                                    onClick={() => setExpandedConcepts((prev) => toggle(prev, concept.id))}
+                                    onClick={() => setExpandedConcepts((prev) => toggleSetMember(prev, concept.id))}
                                   >
                                     <span className={conceptOpen ? styles.chevronOpen : styles.chevron}>▸</span>
                                     <span className={styles.conceptTitle}>{concept.title}</span>

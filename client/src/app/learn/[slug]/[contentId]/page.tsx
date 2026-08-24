@@ -70,10 +70,16 @@ export default function LearnPage() {
     }
 
     let cancelled = false;
-    setDetail(null);
-    setError(null);
-    setPreviewDuration(null);
-    apiFetch(`/sub-concepts/${slug}/content/${contentId}`)
+    // Deferred a microtask so the reset isn't a synchronous setState call in
+    // the effect body (this is what actually shows the loading skeleton
+    // during a slug/contentId change, instead of flashing stale content).
+    Promise.resolve()
+      .then(() => {
+        setDetail(null);
+        setError(null);
+        setPreviewDuration(null);
+        return apiFetch(`/sub-concepts/${slug}/content/${contentId}`);
+      })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load");
         return res.json() as Promise<SubConceptDetail>;

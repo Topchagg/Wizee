@@ -52,10 +52,9 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!user) {
-      setMe(null);
-      return;
-    }
+    // `me`/`daily` are only ever rendered in the authenticated branch below,
+    // so there's nothing to reset when there's no user — just skip the fetch.
+    if (!user) return;
     apiFetch("/auth/me")
       .then((res) => (res.ok ? res.json() : null))
       .then(setMe)
@@ -63,10 +62,7 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) {
-      setDaily(null);
-      return;
-    }
+    if (!user) return;
     apiFetch("/paths/daily")
       .then((res) => (res.ok ? (res.json() as Promise<DailyStatus>) : null))
       .then(setDaily)

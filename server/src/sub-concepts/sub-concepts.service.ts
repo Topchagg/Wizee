@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, User } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddContentDto } from './dto/add-content.dto';
@@ -17,10 +22,19 @@ export class SubConceptsService {
         { concept: { order: 'asc' } },
         { order: 'asc' },
       ],
-      include: { contents: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { id: true } } },
+      include: {
+        contents: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          take: 1,
+          select: { id: true },
+        },
+      },
     });
     if (!subConcept) return null;
-    return { slug: subConcept.slug, contentId: subConcept.contents[0]?.id ?? null };
+    return {
+      slug: subConcept.slug,
+      contentId: subConcept.contents[0]?.id ?? null,
+    };
   }
 
   // Full Subject -> Theme -> Concept -> SubConcept structure for the "add
@@ -116,7 +130,9 @@ export class SubConceptsService {
       }
     }
 
-    const existingCount = await this.prisma.subConceptContent.count({ where: { subConceptId } });
+    const existingCount = await this.prisma.subConceptContent.count({
+      where: { subConceptId },
+    });
 
     return this.prisma.subConceptContent.create({
       data: {
@@ -143,7 +159,7 @@ export class SubConceptsService {
     });
   }
 
-  async getDetail(subConceptIdOrSlug: string, userId: string) {
+  async getDetail(subConceptIdOrSlug: string, _userId: string) {
     const subConcept = await this.prisma.subConcept.findFirst({
       where: { OR: [{ id: subConceptIdOrSlug }, { slug: subConceptIdOrSlug }] },
       include: {
@@ -181,7 +197,11 @@ export class SubConceptsService {
   // Also carries sibling Sub-concepts (same Concept) and a content count, so
   // the client can render a sidebar of "what else is in this Concept" and an
   // "N other explanations available" hint without extra round-trips.
-  async getContentDetail(subConceptIdOrSlug: string, contentId: string, userId: string) {
+  async getContentDetail(
+    subConceptIdOrSlug: string,
+    contentId: string,
+    userId: string,
+  ) {
     const subConcept = await this.prisma.subConcept.findFirst({
       where: { OR: [{ id: subConceptIdOrSlug }, { slug: subConceptIdOrSlug }] },
       include: {
@@ -194,7 +214,11 @@ export class SubConceptsService {
                 id: true,
                 title: true,
                 slug: true,
-                contents: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], take: 1, select: { id: true } },
+                contents: {
+                  orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+                  take: 1,
+                  select: { id: true },
+                },
               },
             },
           },
@@ -210,9 +234,14 @@ export class SubConceptsService {
     const [content, contentCount, masteredAttempts] = await Promise.all([
       this.prisma.subConceptContent.findFirst({
         where: { id: contentId, subConceptId: subConcept.id },
-        include: { tasks: { orderBy: { createdAt: 'asc' } }, creator: { select: { photoUrl: true } } },
+        include: {
+          tasks: { orderBy: { createdAt: 'asc' } },
+          creator: { select: { photoUrl: true } },
+        },
       }),
-      this.prisma.subConceptContent.count({ where: { subConceptId: subConcept.id } }),
+      this.prisma.subConceptContent.count({
+        where: { subConceptId: subConcept.id },
+      }),
       // "Mastered" = at least one passed Attempt, scoped to this Concept's own
       // Sub-concepts (matches the sibling list shown alongside it).
       this.prisma.attempt.findMany({
@@ -234,7 +263,10 @@ export class SubConceptsService {
         theme: subConcept.concept.theme.title,
         concept: subConcept.concept.title,
       },
-      content: { ...this.toContentDto(content), creatorPhotoUrl: content.creator?.photoUrl ?? null },
+      content: {
+        ...this.toContentDto(content),
+        creatorPhotoUrl: content.creator?.photoUrl ?? null,
+      },
       contentCount,
       masteredCount: masteredAttempts.length,
       siblings: subConcept.concept.subConcepts.map((sc) => ({
@@ -246,13 +278,19 @@ export class SubConceptsService {
     };
   }
 
-  async submitAttempt(subConceptIdOrSlug: string, userId: string, dto: SubmitAttemptDto) {
+  async submitAttempt(
+    subConceptIdOrSlug: string,
+    userId: string,
+    dto: SubmitAttemptDto,
+  ) {
     const subConceptId = await this.resolveSubConceptId(subConceptIdOrSlug);
 
     // Grades the SPECIFIC task shown (a content can have several video
     // tasks now that the Test step can roll between them) — not just
     // whichever task happens to be first for this content.
-    const test = await this.prisma.test.findFirst({ where: { id: dto.taskId, contentId: dto.contentId } });
+    const test = await this.prisma.test.findFirst({
+      where: { id: dto.taskId, contentId: dto.contentId },
+    });
     if (!test) {
       throw new NotFoundException('Task not found for this content');
     }
@@ -294,10 +332,17 @@ export class SubConceptsService {
       orderBy: { createdAt: 'asc' },
     });
     if (candidates.length === 0) {
-      throw new NotFoundException(pool === 'solvedOnScreen' ? 'No solved-on-screen tasks for this content' : 'No homework tasks for this content');
+      throw new NotFoundException(
+        pool === 'solvedOnScreen'
+          ? 'No solved-on-screen tasks for this content'
+          : 'No homework tasks for this content',
+      );
     }
 
-    const eligible = excludeTaskId && candidates.length > 1 ? candidates.filter((t) => t.id !== excludeTaskId) : candidates;
+    const eligible =
+      excludeTaskId && candidates.length > 1
+        ? candidates.filter((t) => t.id !== excludeTaskId)
+        : candidates;
     const chosen = eligible[Math.floor(Math.random() * eligible.length)];
 
     return {
@@ -315,7 +360,11 @@ export class SubConceptsService {
   // explanation clicks better. Every request after that first one is gated
   // behind having submitted the practice question at least once, same as
   // the original rule.
-  async getAlternative(subConceptIdOrSlug: string, currentContentId: string, userId: string) {
+  async getAlternative(
+    subConceptIdOrSlug: string,
+    currentContentId: string,
+    userId: string,
+  ) {
     const subConceptId = await this.resolveSubConceptId(subConceptIdOrSlug);
 
     const lastAttempt = await this.prisma.attempt.findFirst({
@@ -330,7 +379,9 @@ export class SubConceptsService {
       // checked) atomically via its unique constraint: a second concurrent
       // "free" request for the same user+subConcept loses the race here.
       try {
-        await this.prisma.alternativeGrant.create({ data: { userId, subConceptId } });
+        await this.prisma.alternativeGrant.create({
+          data: { userId, subConceptId },
+        });
       } catch {
         throw new ForbiddenException('Submit the practice question first');
       }
@@ -383,7 +434,10 @@ export class SubConceptsService {
     }
 
     const nextConcept = await this.prisma.concept.findFirst({
-      where: { themeId: current.concept.themeId, order: { gt: current.concept.order } },
+      where: {
+        themeId: current.concept.themeId,
+        order: { gt: current.concept.order },
+      },
       orderBy: { order: 'asc' },
       include: { subConcepts: { orderBy: { order: 'asc' }, take: 1 } },
     });
@@ -394,7 +448,10 @@ export class SubConceptsService {
     return { slug: nextSubConcept.slug, contentId: content?.id ?? null };
   }
 
-  async recordWatchEvent(userId: string, dto: RecordWatchEventDto): Promise<void> {
+  async recordWatchEvent(
+    userId: string,
+    dto: RecordWatchEventDto,
+  ): Promise<void> {
     await this.prisma.watchEvent.create({
       data: {
         userId,
@@ -412,7 +469,13 @@ export class SubConceptsService {
     description: string | null;
     creatorName: string | null;
     creatorId: string | null;
-    tasks: { id: string; type: string; prompt: string; choices: unknown; isSolvedOnScreen: boolean }[];
+    tasks: {
+      id: string;
+      type: string;
+      prompt: string;
+      choices: unknown;
+      isSolvedOnScreen: boolean;
+    }[];
   }) {
     // The Test step always STARTS on an HW task — solved-on-screen ones are
     // never the initial task, only reachable by rolling when stuck.
@@ -427,7 +490,14 @@ export class SubConceptsService {
       creatorName: content.creatorName,
       creatorId: content.creatorId,
       // `answer` is intentionally omitted — grading happens server-side in submitAttempt.
-      test: test ? { id: test.id, type: test.type, prompt: test.prompt, choices: test.choices } : null,
+      test: test
+        ? {
+            id: test.id,
+            type: test.type,
+            prompt: test.prompt,
+            choices: test.choices,
+          }
+        : null,
       solvedOnScreenCount,
     };
   }

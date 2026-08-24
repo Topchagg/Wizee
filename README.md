@@ -6,7 +6,7 @@ Wizee is a concept-based learning platform designed to make education structured
 
 Instead of forcing users through hours of lectures, Wizee breaks every subject into small independent concepts that can be learned in just a few minutes.
 
-The platform combines the usability of TikTok with the structure of a university curriculum.
+Content is short-form (30 seconds – 5 minutes per video), but sequential and gated, not a swipeable feed — each video is followed by practice before the next one unlocks, and progress is tracked against a structured curriculum underneath it.
 
 ---
 
@@ -136,6 +136,8 @@ Immediately after watching:
 - Code challenge
 - Multiple choice
 
+Each Sub-concept draws from its own **Practice Question Bank** — a pool of exam-style questions attached to that specific Sub-concept, not a single fixed question (see "Sub-concepts" in Features for detail). This is also what makes repeated review (see Retrospective) meaningful: each pass pulls a fresh question instead of repeating the same one.
+
 The goal is understanding, not passive watching.
 
 ---
@@ -172,6 +174,8 @@ Creators can provide different quizzes for:
 - Day 3
 - Day 7
 - Day 30
+
+Each scheduled review pulls a **new question from that Sub-concept's Practice Question Bank** (see "Sub-concepts" below), not a repeat of the exact question already seen. This tests whether the underlying concept was retained, rather than whether a specific question was memorized.
 
 This helps convert short-term memory into long-term knowledge.
 
@@ -296,34 +300,128 @@ The 60% rule gets people to subscribe once. Subscription needs to also give a re
 
 - Remaining 40% of every Concept/Path
 - Full retrospective / spaced repetition scheduling
+- Unlimited access to each Sub-concept's Practice Question Bank (free tier gets one practice question per Sub-concept; see "Sub-concepts" → Practice Question Bank)
 - Cross-path progress tracking & gap detection (e.g. "you know 78% of Frontend Development")
 - Unlimited "Another Explanation" (first alternate stays free; further alternates are subscription-gated)
 - Certificates of completion (bundled, or offered as a standalone a-la-carte purchase)
 
-## 3. Verified-expert paths — opt-in independent pricing
+## 3. Verified-expert paths — sell the map, not a lock-in
 
-A named, credentialed creator (e.g. an actual university admissions tutor) can price their own Path independently, bypassing the 60% rule, and it's purchasable even by non-subscribers. Their expertise/reputation is the product here, not just the underlying Concepts — this is a separate transaction type from the standard subscription-gated Path.
+A named, credentialed creator (e.g. an actual university admissions tutor) can build and price a Path independently, bypassing the 60% rule, purchasable even by non-subscribers. What's being sold is **curation and sequencing** — "I know exactly what N University's Faculty of Y actually tests, and in what order" — not exclusive access to explanations.
 
-## 4. Sub-concept creator pool — watch-time-weighted
+- The expert can assemble the Path entirely from existing tree content, and/or record their own signature videos for specific Sub-concepts.
+- **"Another Explanation" stays fully available inside a paid Path**, including on the expert's own videos. If their explanation doesn't click, the student can pull any other creator's explanation from the public pool, exactly like a free user would. The Path's value is the map, not a guaranteed-to-work explanation — nobody can promise that, so the product doesn't pretend to.
+- A purchased Path is fully unlocked on its own; the 60% subscription gate doesn't reapply inside something already bought separately.
+- Underlying Sub-concept creators (whoever's videos actually get watched, expert or otherwise) still earn through the normal watch-time-weighted pool (#4), funded from platform margin on the Path sale — the expert is paid for curation, not for owning the underlying content's earnings.
+- This design keeps regular Sub-concept creators' value intact even inside paid Paths: an expert Path drives traffic into the same shared pool everyone contributes to, rather than displacing it.
 
-Once subscription revenue exists, a pool of it is distributed across Sub-concept videos proportional to watch-time / completion — optionally weighted by pass-rate, to reward *effective* teaching over merely popular content. This is the base creator-payout layer; every other creator incentive below is funded from platform margin on top of it, never carved out of it.
+## 4. Institutional licensing — schools, universities, companies
 
-## 5. Subject Creator royalty — infrastructure tier
+A separate buyer entirely from individual subscribers, sold through **Wizee for Schools & Universities** (see below) — a private, institution-scoped application built on the same content engine.
 
-1–3% of revenue attributed to a Subject (same watch-time-weighted mechanism as #4, aggregated one level up), paid from platform margin. Ownership and final authority over the tree always stay with the platform — the Subject creator gets a durable royalty plus priority in the suggestion/review queue, not equity or control over the tree. Revenue share follows the subject itself, not a frozen snapshot, so it survives later restructuring.
+- **Schools** license per-seat access, primarily for the pacing and safe-failure benefits described in the Kids & Emotional Design section below.
+- **Universities** license per-cohort access with a curriculum mapped onto the existing tree, giving faculty early, granular visibility into class-wide strengths and gaps — catching problems in week 2 instead of at the midterm.
+- **Companies** license paths for employee upskilling, generally at higher per-seat pricing than consumer subscription.
+- **University-sponsored official Paths** are a related but distinct product: a university pays for prominent, verified placement of an "Official Entrance Prep" Path, functioning as applicant-funnel marketing rather than a purchase by students. Sponsored/official Paths must be clearly labeled as such, so trust in the free "Another Explanation" pool being neutral is never in question.
+- Institutional usage still feeds the shared, anonymized pass-rate/quality data at the content level (helping the creator pool and content-quality signals) even while individual student data stays private to their own institution.
 
-## 6. Path fulfillment — bounty, not royalty
+## 5. Sub-concept creator pool — watch-time-weighted
+
+Once subscription revenue exists, a pool of it is distributed across Sub-concept videos proportional to watch-time / completion — optionally weighted by pass-rate, to reward *effective* teaching over merely popular content. This is the base creator-payout layer; every other creator incentive is funded from platform margin on top of it, never carved out of it.
+
+## 6. Subject Creator royalty — infrastructure tier
+
+1–3% of revenue attributed to a Subject (same watch-time-weighted mechanism as #5, aggregated one level up), paid from platform margin. Ownership and final authority over the tree always stay with the platform — the Subject creator gets a durable royalty plus priority in the suggestion/review queue, not equity or control over the tree. Revenue share follows the subject itself, not a frozen snapshot, so it survives later restructuring.
+
+## 7. Path fulfillment — bounty, not royalty
 
 Community members who fulfill a requested Path (e.g. "N University — Faculty of X") earn a flat/tiered bounty, weighted by request demand (vote count), paid from platform margin. Curation is rewarded per-contribution here, not as an ongoing percentage — that structural royalty is reserved for Subjects, which underlie everything built on top of them.
 
-## 7. Teacher booking — phased rollout
+## 8. Teacher booking — phased rollout
 
 - **Phase 1 (now):** Fully free discovery and booking, no commission. At this stage the platform's only value-add is the creator's profile and pass-rate stats — a plain directory, not a differentiated matching tool.
 - **Phase 2 (once Trace-path / struggle-data is live and populated):** Commission-based booking. By this point the platform delivers genuinely qualified leads — students pre-diagnosed with specific gaps — which justifies taking a cut.
 
-## 8. Bootstrap-phase creator incentive — temporary, not structural
+## 9. Small in-app currency — tipping & à la carte, not a primary engine
 
-Before real subscriber volume exists, a percentage-based pool pays out fractions of a cent and motivates no one. Founding creators are instead paid a fixed stipend per approved, quality-reviewed video, plus "founding creator" status and priority once the real revenue-share pool (see #4) launches. This is a bridge, not a permanent mechanism — founding creators transition onto the watch-time-weighted pool once subscriber volume makes it meaningful; creators who join afterward enter directly into the pool model.
+A lightweight currency ("Wizee Coins") isn't a new revenue source on its own — it's a UX wrapper around real money, useful for small, low-friction purchases where a full checkout flow would be overkill:
+
+- **Tipping individual Sub-concept creators** directly, on top of the normal pool split — a trust/goodwill mechanic, not a replacement for it.
+- **À la carte unlocking** of a single Concept's remaining 40% without a full subscription.
+- Not used for subscription or expert-Path purchases — those stay big, deliberate, real-money transactions where a currency layer would only add friction.
+
+## 10. Standalone certification
+
+A verified, shareable certificate tied to a specific Path, backed by real pass-rate-based rigor (not just "watched the videos"). Available bundled with subscription or sellable a la carte to non-subscribers who just want proof of a specific skill — this pairs especially well with university-sponsored official Paths, where a credible certificate has real signaling value to an actual admissions committee.
+
+## 11. Bootstrap-phase creator incentive — temporary, not structural
+
+Before real subscriber volume exists, a percentage-based pool pays out fractions of a cent and motivates no one. Founding creators are instead paid a fixed stipend per approved, quality-reviewed video, plus "founding creator" status and priority once the real revenue-share pool (see #5) launches. This is a bridge, not a permanent mechanism — founding creators transition onto the watch-time-weighted pool once subscriber volume makes it meaningful; creators who join afterward enter directly into the pool model.
+
+---
+
+# Wizee for Schools & Universities
+
+A separate, institution-scoped application — not a mode inside the main consumer app — built on the same content engine (tree, videos, "Another Explanation," pass-rate data) but wrapped in a different, private information architecture.
+
+## Why it has to be a separate app
+
+The core Wizee app's value depends on being judgment-free — failure is private, there's no public leaderboard of who struggled, no audience for a wrong answer. Bolting grade/cohort management onto that same app risks leaking exactly the kind of visibility the product is designed to remove — even a theoretical chance of being seen changes how a kid behaves. A separate app makes the privacy boundary structural, not just a setting someone could get wrong.
+
+## What it includes
+
+- **Private cohorts.** A student's progress and struggle data are visible only to their own teacher/institution — never to other students, never in any public leaderboard or pool.
+- **Curriculum mapping.** The institution's real syllabus is mapped onto the existing Subject/Theme/Concept/Sub-concept tree, so "Wizee-School Algebra II" reflects their actual course, not a generic path.
+- **Teacher dashboard.** Per-student and per-class struggle heatmaps (the same Trace-path data, aggregated privately to a classroom) — a teacher sees where a class is stuck without any student being singled out publicly.
+- **No peer-visible scores or leaderboards.** Kids see only their own progress.
+- **Homework verification, not behavioral surveillance.** The platform already logs watch-time, attempts, and pass/fail — enough for a teacher to confirm homework was actually done. Reporting stays at the level of *completion and mastery* (did they watch it, did they pass, how many attempts) — not inferred attentiveness (pausing, distraction signals), which is both unreliable and a step into surveillance the platform shouldn't take.
+- **Content and payouts stay shared.** "Another Explanation" still pulls from the same public creator pool, and institutional watch-time still feeds the same anonymized, content-level pass-rate data (helping the creator pool and quality signals) — only the *student's identity and personal data* stay private to their institution.
+
+## Parent visibility — quarterly summary, not a live dashboard
+
+Parents will consistently ask for a live dashboard. It should not be built — a real-time, granular view recreates the exact social-pressure problem the product exists to remove, and puts sensitive data directly into unpredictable hands, including from parents who may react punitively.
+
+Instead:
+
+- **Once every ~90 days**, parents receive a **summary**: concepts mastered, engagement trend, homework completion. Framed around growth and persistence, not a raw score.
+- **No live access, no per-attempt logs, no granular struggle data** — even at the quarterly reveal. The moment-to-moment learning process (repeated attempts, "Another Explanation" usage) stays permanently private; only outcomes are shared.
+- **The student sees their own summary first (or simultaneously)**, so the reveal doesn't feel like being watched without control.
+- **The teacher remains the default buffer** for anything beyond the digest — a parent wanting more detail goes through the teacher (e.g. a parent-teacher conference), not a raw feed. This mirrors the same role a teacher already plays as the buffer between a student's private struggle and any external visibility of it.
+
+---
+
+# Kids & Emotional Design
+
+Wizee's primary audience is roughly 14–18 years old — the age range where identity formation and peer comparison peak, and where how failure is framed matters more than almost any other design decision in the product.
+
+## The self-handicapping pattern
+
+After failing a test once or twice, a common response isn't disengagement from lack of interest — it's a defense mechanism. Continuing to try and failing again threatens a kid's sense of ability ("I'm not good at this"); disengaging lets them pre-explain future failure as "I just didn't try," which is psychologically cheaper to live with. The dropout often isn't boredom — it's avoidance of what another honest attempt might mean about them.
+
+This means the platform's job isn't just to make failure low-social-cost (which "Another Explanation" and private progress already do) — it also needs to shape the *internal story* a kid tells themselves about a failed attempt, since that damage can happen even with nobody watching at all.
+
+## Design principle: failure is attributed to the explanation, never to the learner
+
+This should hold everywhere in the product — UI copy, teacher-facing data, parent summaries:
+
+- After a failed attempt, framing should point at the content, not the learner — e.g. *"That explanation didn't click — let's try a different one,"* never *"Incorrect"* alone or anything scored/compared.
+- No streaks-broken shame mechanics, no "you're behind" framing, no pace comparisons to peers.
+- Re-engagement after failure (did they retry, or quietly stop) is a more useful signal for a teacher to see than raw pass/fail — it shows *when* to step in emotionally, not just academically.
+
+## Platform voice
+
+The product's language should give permission to not understand immediately, without asking anyone to embrace failure as an identity or strategy — "fail fast, fail often" works in cultures that already treat failure as low-stakes experimentation, but lands very differently across many families and cultures where failure carries real shame. The actual promise worth making is narrower and more universal: **nobody's stuck, and nobody's watching.**
+
+Candidate directions:
+
+- *"Wrong answers are just directions."*
+- *"Nobody understands everything the first time."*
+- *"You didn't fail — that explanation did."*
+- *"Struggle in private. Succeed in public."*
+
+## Why this compounds with the rest of the product
+
+This isn't a separate feature — it's the verbal and behavioral layer sitting on top of decisions already made elsewhere in this document: no public pass-rate visible to peers, no live parent dashboard, gated "Another Explanation" instead of a visible wrong answer. The tone of the product needs to stay consistent with what it already structurally protects, especially for a 14–18 year old audience that is unusually sensitive to what failure implies about who they are.
 
 ---
 
@@ -504,6 +602,7 @@ Then builds the learning path automatically.
 - Community ratings
 - Creator monetization
 - Subject Creator Program (propose new subjects, earn revenue share)
+- Wizee for Schools & Universities (private cohorts, institutional licensing)
 
 ---
 
@@ -562,6 +661,17 @@ A Sub-concept is a small video that explains a Concept when the Concept itself i
 3.2 If a student doesn't like the video, they can press **Another Explanation**, which surfaces a different video for the exact same Sub-concept. (Gated behind submitting the Practice step first — see "Another Explanation" above.)
 3.3 Every video has a test/task after it.
 3.4 Every video has a short (~15 second) preview explaining its real-world use case, to avoid the frustration of learning something without knowing why. Example: *"You know how LLMs work? They're based on matrices — today we're going to discuss..."*
+
+### 3.5 Practice Question Bank
+
+Each Sub-concept holds its own pool of practice questions, not a single fixed quiz item — modeled directly on how real exam-prep books work (short theory, then many example problems), but attached to the exact Sub-concept they test, which a physical book can't do.
+
+- **Why this matters:** research talking to real NMT-prep students surfaced a recurring pattern — the books they already use give a short, formula-only theory block, then jump straight into practice problems with no explanation of *why* the formula works. Students hit a wall exactly there: they either memorize the formula without understanding it, or go looking for an explanation elsewhere. Wizee's video already supplies that missing "why" — the Question Bank supplies the same real-exam-style practice students already trust, now correctly addressed to the concept that's actually being tested.
+- **A new question each time**, not a repeated one — this is what powers the Retrospective mechanic (Day 1/3/7/30 reviews pull a fresh question from the same bank) and avoids testing "do I remember this exact question" instead of "do I understand this concept."
+- **Question format should mirror the real exam** (e.g. NMT-style phrasing and difficulty), not a generic comprehension check — this is a direct, deliberate response to what students already expect from exam prep, and it's a sharper point of differentiation from a generic "quiz app" than an abstract multiple-choice question would be.
+- **Source of questions:** either creator-submitted (a video creator can attach several practice questions, not just one, when filling a Sub-concept slot) or generated in an exam-appropriate style/difficulty as a small, bounded task — consistent with using AI only for small, well-scoped jobs rather than core content creation. Reusing real past exam questions verbatim needs a legal check before relying on it as a source.
+- **Same pass-rate tracking applies to individual questions**, not just to videos — a question that's frequently missed, or worded confusingly, is a signal to review or replace it, independent of whether the video explanation itself is good.
+- **Monetization tie-in:** one free practice question per Sub-concept, unlimited bank access as part of Subscription (see Monetization → Subscription) — a clean, concrete premium hook that maps directly onto something students already pay for today (a sborník/exam-prep book), rather than an abstract "unlock more content" pitch.
 
 ## 4. Trace-path
 
@@ -653,3 +763,4 @@ Once the core loop is validated with real usage data (not assumption), extend ou
 # Do Not Forget
 
 - Every Sub-concept video should track a pass-rate: e.g. Sub-concept A / Video A passed by 90% of viewers, Sub-concept A / Video B passed by only 60%. This is the core data signal for surfacing weak explanations and improving the graph over time.
+- The same pass-rate tracking applies at the individual practice-question level within each Sub-concept's Practice Question Bank, not just at the video level — a confusing or too-easy/too-hard question is a separate signal from a weak video explanation.
