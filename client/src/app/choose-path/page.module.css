@@ -1,0 +1,45 @@
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 6px;
+  max-width: 56ch;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+
+.pathTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.description {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.meta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}

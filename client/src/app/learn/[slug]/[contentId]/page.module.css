@@ -1,0 +1,546 @@
+.learnShell {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: grid;
+  grid-template-columns: 280px 1fr 240px;
+  align-items: start;
+  gap: 32px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.crumbSep {
+  color: var(--color-text-faint);
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: -12px;
+}
+
+.hook {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-top: -12px;
+}
+
+.creatorAvatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary-light), color-mix(in srgb, var(--color-accent) 18%, var(--color-primary-light)));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.creatorAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.creatorInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.creatorLabel {
+  font-size: 13px;
+  color: var(--color-text-faint);
+}
+
+.creatorLabel strong {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.creatorBadge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* Step progress — dot styling shared with the vertical step sidebar below. */
+
+.stepDot {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.stepDot:disabled {
+  cursor: default;
+}
+
+.stepDot_active {
+  border-color: var(--color-primary);
+  background: var(--gradient-brand);
+  color: #fff;
+}
+
+.stepDot_done {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #fff;
+}
+
+.stepDot_upcoming {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
+}
+
+.stepLabel,
+.stepLabelMuted {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stepLabel {
+  color: var(--color-text);
+}
+
+.stepLabelMuted {
+  color: var(--color-text-faint);
+}
+
+.stepCaption {
+  font-size: 11px;
+  color: var(--color-text-faint);
+  line-height: 1.4;
+}
+
+.stepLine,
+.stepLineDone {
+  flex: 1;
+  width: 2px;
+  min-height: 20px;
+  margin: 4px 0;
+  background: var(--color-border);
+  border-radius: var(--radius-pill);
+  transition: background-color 0.15s ease;
+}
+
+.stepLineDone {
+  background: var(--color-success);
+}
+
+.stepCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  animation: reveal 0.2s ease;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A thin brand-gradient ring around the video, tying it to the logo/button
+   language instead of it floating as a generic HTML5 player. */
+.videoFrame {
+  position: relative;
+  padding: 3px;
+  border-radius: calc(var(--radius-md) + 3px);
+  background: var(--gradient-brand);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.videoFrame .badge {
+  position: absolute;
+  top: 13px;
+  left: 13px;
+  z-index: 1;
+}
+
+.previewVideo {
+  width: 100%;
+  max-height: 420px;
+  border-radius: var(--radius-md);
+  background: #000;
+  display: block;
+}
+
+.video {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius-md);
+  background: #000;
+  aspect-ratio: 16 / 9;
+}
+
+.stepFooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.stepFooterBetween {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  animation: reveal 0.2s ease;
+}
+
+.practiceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.practiceTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+}
+
+.prompt {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: -6px;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choice,
+.choiceSelected {
+  text-align: left;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.choice:hover {
+  border-color: var(--color-text-faint);
+}
+
+.choiceSelected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.pass,
+.fail {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pass {
+  color: var(--color-success);
+}
+
+.fail {
+  color: var(--color-danger);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Sidebar — sibling Sub-concepts within the same Concept. Doubles as "where
+   this fits" context and fills the page so it doesn't read as one narrow
+   card floating in empty space. */
+.sidebar {
+  /* Visually placed in the first (left) grid column while staying after
+     .main in DOM/reading order — order affects grid auto-placement without
+     needing to reorder the actual markup. */
+  order: -1;
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* The grid row itself already starts level with .main (same top), but the
+     first card's border + padding pushes its heading text ~19px below the
+     breadcrumb's text — pull the whole sidebar up by that exact amount so
+     the two columns' first readable line lines up. */
+  margin-top: -19px;
+}
+
+.siblingCard {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.authorCard {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.authorRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contactButton {
+  width: 100%;
+}
+
+.siblingHeading {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.siblingSubheading {
+  font-size: 12px;
+  color: var(--color-text-faint);
+  margin-bottom: 8px;
+}
+
+.siblingList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.siblingRow,
+.siblingRowActive,
+.siblingRowEmpty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.siblingRow {
+  color: var(--color-text);
+  transition: background-color 0.15s ease;
+}
+
+.siblingRow:hover {
+  background: var(--color-primary-light);
+}
+
+.siblingRowActive {
+  color: var(--color-primary);
+  font-weight: 700;
+  background: var(--color-primary-light);
+}
+
+.siblingRowEmpty {
+  color: var(--color-text-faint);
+}
+
+.siblingDot {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-surface-alt);
+  color: inherit;
+}
+
+.siblingRowActive .siblingDot {
+  background: var(--gradient-brand);
+  color: #fff;
+}
+
+.siblingTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Right sidebar — the step progress (Preview -> Video -> Test), vertical,
+   top to bottom. Same -19px top trick as the left sidebar so all three
+   columns' first heading lines up. */
+.stepSidebar {
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
+  margin-top: -19px;
+}
+
+.stepCardList {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stepList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.stepNode {
+  display: flex;
+  gap: 12px;
+}
+
+.stepNodeMarker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stepNodeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 18px;
+}
+
+@media (max-width: 800px) {
+  .learnShell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar,
+  .stepSidebar {
+    position: static;
+    /* The -19px pull only makes sense next to .main in the two-column
+       layout — stacked, it just crams the sidebar against the header. */
+    margin-top: 0;
+  }
+}
+
+/* "Solve the practice question first" gate modal */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, black 55%, transparent);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modalCard {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-md);
+  animation: modalIn 0.18s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modalBody {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}

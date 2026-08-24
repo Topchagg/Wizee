@@ -1,0 +1,495 @@
+.builderShell {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+}
+
+.builderGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Both sidebars scroll their own content instead of the page — sticky so
+   they pin just below the app header once scrolled, with max-height sized
+   off the space actually left in the viewport (not a flat 90vh, which
+   would still push past the bottom once the page's own header content
+   above the grid is accounted for). */
+.pathSidebar,
+.treeSidebar {
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
+  max-height: calc(100vh - var(--header-height) - 48px);
+  overflow-y: auto;
+}
+
+@media (max-width: 860px) {
+  .builderGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pathSidebar,
+  .treeSidebar {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+.back {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  align-self: flex-start;
+}
+
+.back:hover {
+  color: var(--color-text);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: -8px;
+}
+
+.pathDescription {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: -16px;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.itemLabel {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemButtons {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pathSubtitle {
+  font-size: 13px;
+  margin-top: 2px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+/* Roadmap — numbered nodes on a connecting line, bookended by Start/Goal,
+   so building a path reads as laying out a journey, not editing a list. */
+
+.roadmap {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* One continuous brand-gradient spine behind the whole sequence, instead of
+   a flat-grey line re-segmented at every node — reads as a single purple
+   (Start) -> pink (Goal) thread the path is strung on. z-index:-1 (with
+   this element as the positioning root) keeps it behind the circles/cards,
+   which stay normal-flow siblings. */
+.roadmapPopulated {
+  /* z-index:0 (not just position:relative) forces this to establish its own
+     stacking context, so the spine's z-index:-1 below is scoped to sit
+     behind THIS element's own children rather than escaping to the
+     nearest ancestor stacking context (which would put it behind the
+     whole card's background instead — invisible). */
+  position: relative;
+  z-index: 0;
+}
+
+.roadmapPopulated::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-pill);
+  z-index: -1;
+}
+
+.roadmapNode {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+/* Extra breathing room between Start and the first concept bar — without
+   this they read as touching, since .roadmap has no gap of its own (each
+   item's own margin-bottom handles spacing further down the list). */
+.startNode {
+  margin-bottom: 14px;
+}
+
+.roadmapMarker {
+  display: flex;
+  flex-direction: column;
+  /* center (not the flex-column default of flex-start) so the icon lines up
+     with the vertical middle of whatever sits beside it — a short Start/Goal
+     label or a taller concept bar — instead of hugging the top of the row. */
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  width: 32px;
+}
+
+.stepCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.startMarker,
+.goalMarker {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.roadmapEndpointLabel {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+  padding: 6px 0;
+}
+
+.roadmapCard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.emptyRoadmapHint {
+  align-self: center;
+  font-size: 13px;
+}
+
+/* Subject picker — "buttons with names of subjects" */
+
+.subjectGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.subjectTile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.subjectTile:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  transform: translateY(-1px);
+}
+
+.subjectTileTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.subjectTileMeta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Inside a subject — search + accordion */
+
+.subjectPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: reveal 0.15s ease;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.subjectPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.backToSubjects {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.backToSubjects:hover {
+  color: var(--color-text);
+}
+
+.subjectPanelTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Search results */
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.searchHit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.searchHitInfo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hitTypeBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.searchHitName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.searchHitBreadcrumb {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.searchHitActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Accordion tree */
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.themeBlock {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.themeBlock:last-child {
+  border-bottom: none;
+}
+
+.themeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.themeToggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+  min-width: 0;
+}
+
+.themeToggle:hover {
+  background: var(--color-surface-alt);
+}
+
+.chevron,
+.chevronOpen {
+  display: inline-flex;
+  color: var(--color-text-faint);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+  color: var(--color-primary);
+}
+
+.themeTitle {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.concepts {
+  padding: 0 0 8px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: reveal 0.15s ease;
+}
+
+.conceptBlock {
+  border-left: 2px solid var(--color-border);
+}
+
+.conceptRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.conceptToggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+  min-width: 0;
+}
+
+.conceptToggle:hover {
+  background: var(--color-surface-alt);
+}
+
+.conceptTitle {
+  flex: 1;
+}
+
+.subConceptList {
+  list-style: none;
+  padding: 2px 0 8px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: reveal 0.15s ease;
+}
+
+.subConceptRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-text-faint);
+}
+
+@media (max-width: 480px) {
+  .subjectGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

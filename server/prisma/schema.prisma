@@ -1,0 +1,321 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PathItemType {
+  THEME
+  CONCEPT
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  FILL_GAP
+  CALCULATION
+  CODE_CHALLENGE
+}
+
+enum ReviewStage {
+  DAY_1
+  DAY_3
+  DAY_7
+  DAY_30
+}
+
+enum SearchEntryType {
+  THEME
+  CONCEPT
+  SUBCONCEPT
+}
+
+// Denormalized search index over Theme/Concept/SubConcept names, rebuilt
+// whenever the tree is seeded. `idLink` is a polymorphic pointer — it's the
+// Theme/Concept/SubConcept id matching `type`, not a Prisma relation, since
+// it can point at three different tables. themeId/conceptId (+ their titles)
+// are only the ANCESTOR chain, denormalized so a hit on a SubConcept still
+// carries enough to offer "Add its Concept" / "Add its Theme" without a
+// follow-up join — the path builder can only add Themes or Concepts.
+model SearchTable {
+  id           String          @id @default(cuid())
+  name         String
+  type         SearchEntryType
+  idLink       String
+  subjectId    String
+  themeId      String?
+  themeTitle   String?
+  conceptId    String?
+  conceptTitle String?
+
+  @@index([subjectId])
+  @@index([name])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+  email       String   @unique
+  displayName String?
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+
+  attempts          Attempt[]
+  watchEvents       WatchEvent[]
+  reviews           ReviewSchedule[]
+  paths             LearningPath[]
+  alternativeGrants AlternativeGrant[]
+  createdContents   SubConceptContent[]
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+}
+
+// Simple direct messaging between any two users (readme 5.1: student contacts
+// a teacher whose explanation they liked). No RBAC yet — anyone can message
+// anyone; a "conversation" is just the set of messages between two user ids,
+// not a separate persisted entity.
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+  content     String
+  createdAt   DateTime @default(now())
+
+  sender    User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, senderId, createdAt])
+}
+
+// --- Content tree: Subject -> Theme -> Concept -> SubConcept ---
+
+model Subject {
+  id    String @id @default(cuid())
+  title String
+  // URL-friendly identifier for /subjects/[slug] — set once at creation,
+  // independent of title so renaming a Subject later doesn't break old links.
+  slug  String @unique
+  order Int
+
+  themes Theme[]
+
+  @@unique([order])
+}
+
+model Theme {
+  id        String @id @default(cuid())
+  subjectId String
+  title     String
+  order     Int
+
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  concepts  Concept[]
+  pathItems PathItem[]
+
+  @@unique([subjectId, order])
+}
+
+model Concept {
+  id      String @id @default(cuid())
+  themeId String
+  title   String
+  order   Int
+
+  theme       Theme        @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  subConcepts SubConcept[]
+  pathItems   PathItem[]
+
+  // Cross-cutting, advisory-only dependency graph (see ConceptPrerequisite) —
+  // separate from `order`, which only sequences siblings under the same Theme.
+  requires   ConceptPrerequisite[] @relation("Requires")
+  requiredBy ConceptPrerequisite[] @relation("RequiredBy")
+
+  @@unique([themeId, order])
+}
+
+// Directed edge: `concept` assumes knowledge of `requires`. Advisory only —
+// nothing in the app enforces this at read/write time; it powers soft nudges
+// (path-building suggestions, prerequisite warnings), not hard gating.
+model ConceptPrerequisite {
+  conceptId         String
+  requiresConceptId String
+
+  concept  Concept @relation("Requires", fields: [conceptId], references: [id], onDelete: Cascade)
+  requires Concept @relation("RequiredBy", fields: [requiresConceptId], references: [id], onDelete: Cascade)
+
+  @@id([conceptId, requiresConceptId])
+}
+
+model SubConcept {
+  id        String @id @default(cuid())
+  conceptId String
+  title     String
+  slug      String @unique
+  order     Int
+
+  // A pure placeholder/slot — id, title, order, and its place in the tree.
+  // The tree itself (Subject/Theme/Concept/SubConcept) is pre-defined and
+  // admin/seed-only. All actual teaching material lives one level down, in
+  // SubConceptContent — any number of teachers can each contribute their own
+  // bundle (video + preview + tasks + description) to the same slot.
+  concept           Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  contents          SubConceptContent[]
+  attempts          Attempt[]
+  reviews           ReviewSchedule[]
+  alternativeGrants AlternativeGrant[]
+
+  @@unique([conceptId, order])
+}
+
+// Marks that a user has already used their one free "Another Explanation"
+// for a Sub-concept (allowed before they've ever submitted its practice
+// question). Once this row exists, any further alternative request is
+// gated behind having submitted an Attempt, same as before this existed.
+model AlternativeGrant {
+  id           String   @id @default(cuid())
+  userId       String
+  subConceptId String
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subConcept SubConcept @relation(fields: [subConceptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subConceptId])
+}
+
+// One teacher's full contribution to a Sub-concept slot. Not "just a video" —
+// bundles everything that one submission brings: the explanation video, a
+// required short preview (<=45s, enforced client-side in /add-content), an
+// optional description, and that teacher's own practice tasks. "Another
+// Explanation" swaps the whole bundle, not just a URL.
+model SubConceptContent {
+  id           String   @id @default(cuid())
+  subConceptId String
+  video        String
+  previewVideo String
+  description  String?
+  creatorName  String?
+  // The real account that submitted this content, so a learner can message
+  // the actual teacher — null for seed-authored placeholder content, which
+  // has no real account behind it.
+  creatorId    String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  subConcept  SubConcept   @relation(fields: [subConceptId], references: [id], onDelete: Cascade)
+  creator     User?        @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  tasks       Test[]
+  attempts    Attempt[]
+  watchEvents WatchEvent[]
+
+  @@index([subConceptId, isPrimary])
+}
+
+model Test {
+  id        String       @id @default(cuid())
+  contentId String
+  type      QuestionType
+  prompt    String
+  choices   Json?
+  answer    Json
+  // false (default, "HW" task): the normal Test-step question. true ("solved
+  // on screen"): a duplicate of a task actually worked out in the video —
+  // never the step's starting task, only ever reached by rolling when a
+  // learner is stuck on an HW task, so there's a guaranteed answer to go
+  // check. Rolling from a solved-on-screen task back to HW then excludes
+  // whichever HW task originally stumped them, for a real second attempt.
+  isSolvedOnScreen Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  content SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, isSolvedOnScreen])
+}
+
+// --- Instrumentation (readme MVP step 4) ---
+
+model Attempt {
+  id           String   @id @default(cuid())
+  userId       String
+  subConceptId String
+  contentId    String
+  passed       Boolean
+  requestedAlt Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subConcept SubConcept        @relation(fields: [subConceptId], references: [id], onDelete: Cascade)
+  content    SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([subConceptId, contentId, passed])
+  @@index([userId, subConceptId])
+}
+
+model WatchEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  contentId      String
+  watchedSeconds Int
+  completed      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+}
+
+// --- Retrospective / spaced repetition (readme MVP step 6) ---
+
+model ReviewSchedule {
+  id           String      @id @default(cuid())
+  userId       String
+  subConceptId String
+  stage        ReviewStage
+  dueAt        DateTime
+  completedAt  DateTime?
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subConcept SubConcept @relation(fields: [subConceptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subConceptId, stage])
+  @@index([userId, dueAt])
+}
+
+// --- User-built Learning Paths (readme step 7.3 / spec section 2) ---
+
+model LearningPath {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PathItem[]
+}
+
+model PathItem {
+  id        String       @id @default(cuid())
+  pathId    String
+  order     Int
+  itemType  PathItemType
+  themeId   String?
+  conceptId String?
+
+  path    LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  theme   Theme?       @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  concept Concept?     @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([pathId, order])
+}

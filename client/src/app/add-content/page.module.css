@@ -1,0 +1,157 @@
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 6px;
+  max-width: 62ch;
+}
+
+.formCard {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.uploadGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}
+
+.uploadField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fileInput {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.progress {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.uploaded {
+  font-size: 13px;
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.tasksSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.tasksHint {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: -4px;
+}
+
+.taskCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.taskRow {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.taskMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.homeworkToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.homeworkToggle input {
+  width: auto;
+}
+
+.successCard {
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.successIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.successText {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.successActions {
+  display: flex;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .pickerGrid,
+  .uploadGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .taskRow {
+    grid-template-columns: 1fr;
+  }
+}
