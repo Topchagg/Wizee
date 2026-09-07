@@ -4,37 +4,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { canCreate, useAuth } from "@/contexts/AuthContext";
-import { Modal } from "@/components/Modal";
 import { apiFetch } from "@/lib/api";
-import { toggleSetMember } from "@/lib/set-utils";
+import { PrereqSuggestionModal } from "./_components/PrereqSuggestionModal";
+import { Roadmap } from "./_components/Roadmap";
+import { TreePicker } from "./_components/TreePicker";
+import type { MissingPrerequisite, PathDetail, SearchHit, TreeSubject } from "./_components/types";
 import styles from "./page.module.css";
-
-type PathItem = {
-  id: string;
-  order: number;
-  itemType: "THEME" | "CONCEPT";
-  label: string;
-  themeId: string | null;
-  conceptId: string | null;
-};
-type PathDetail = { id: string; title: string; description: string | null; isPublic: boolean; items: PathItem[] };
-
-type TreeSubConcept = { id: string; title: string };
-type TreeConcept = { id: string; title: string; subConcepts: TreeSubConcept[] };
-type TreeTheme = { id: string; title: string; concepts: TreeConcept[] };
-type TreeSubject = { id: string; title: string; themes: TreeTheme[] };
-
-type SearchHit = {
-  name: string;
-  type: "THEME" | "CONCEPT" | "SUBCONCEPT";
-  idLink: string;
-  themeId: string | null;
-  themeTitle: string | null;
-  conceptId: string | null;
-  conceptTitle: string | null;
-};
-
-type MissingPrerequisite = { id: string; title: string; themeTitle: string };
 
 export default function PathBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -251,300 +226,49 @@ export default function PathBuilderPage() {
 
       <div className={styles.headerRow}>
         <h1 className={styles.title}>{detail.title}</h1>
-        <span className={detail.isPublic ? "badge badge-success" : "badge"}>
-          {detail.isPublic ? "Published" : "Draft"}
-        </span>
+        <span className={detail.isPublic ? "badge badge-success" : "badge"}>{detail.isPublic ? "Published" : "Draft"}</span>
       </div>
       {detail.description && <p className={`text-secondary ${styles.pathDescription}`}>{detail.description}</p>}
 
       <div className={styles.builderGrid}>
-      <section className={`card ${styles.section} ${styles.pathSidebar}`}>
-        <div>
-          <h2 className={styles.sectionTitle}>Your path</h2>
-          <p className={`text-secondary ${styles.pathSubtitle}`}>
-            A learner following this path moves through these, top to bottom.
-          </p>
-        </div>
+        <Roadmap
+          items={detail.items}
+          busy={busy}
+          isPublic={detail.isPublic}
+          onMove={(index, direction) => void handleMove(index, direction)}
+          onRemove={(itemId) => void handleRemove(itemId)}
+          onPublish={() => void handlePublish()}
+        />
 
-        {detail.items.length === 0 ? (
-          <div className={styles.roadmap}>
-            <div className={styles.roadmapNode}>
-              <div className={styles.roadmapMarker}>
-                <span className={styles.startMarker}>▶</span>
-              </div>
-              <p className={`text-secondary ${styles.emptyRoadmapHint}`}>
-                Add a Theme or Concept below to lay the first step.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <ol className={`${styles.roadmap} ${styles.roadmapPopulated}`}>
-            <li className={`${styles.roadmapNode} ${styles.startNode}`}>
-              <div className={styles.roadmapMarker}>
-                <span className={styles.startMarker}>▶</span>
-              </div>
-              <span className={styles.roadmapEndpointLabel}>Start</span>
-            </li>
-            {detail.items.map((item, index) => (
-              <li key={item.id} className={styles.roadmapNode}>
-                <div className={styles.roadmapMarker}>
-                  <span className={styles.stepCircle}>{index + 1}</span>
-                </div>
-                <div className={styles.roadmapCard}>
-                  <span className={styles.itemLabel}>
-                    <span className="badge">{item.itemType}</span> {item.label}
-                  </span>
-                  <span className={styles.itemButtons}>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => void handleMove(index, -1)}
-                      disabled={busy || index === 0}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => void handleMove(index, 1)}
-                      disabled={busy || index === detail.items.length - 1}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => void handleRemove(item.id)}
-                      disabled={busy}
-                    >
-                      Remove
-                    </button>
-                  </span>
-                </div>
-              </li>
-            ))}
-            <li className={styles.roadmapNode}>
-              <div className={styles.roadmapMarker}>
-                <span className={styles.goalMarker}>🏁</span>
-              </div>
-              <span className={styles.roadmapEndpointLabel}>Goal</span>
-            </li>
-          </ol>
-        )}
-
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => void handlePublish()}
-          disabled={busy || detail.isPublic}
-        >
-          {detail.isPublic ? "Published" : "Publish"}
-        </button>
-      </section>
-
-      <section className={`card ${styles.section} ${styles.treeSidebar}`}>
-        <h2 className={styles.sectionTitle}>Add from the tree</h2>
-
-        {!selectedSubject ? (
-          <div className={styles.subjectGrid}>
-            {tree.map((subject) => {
-              const conceptCount = subject.themes.flatMap((t) => t.concepts).length;
-              return (
-                <button
-                  key={subject.id}
-                  type="button"
-                  className={styles.subjectTile}
-                  onClick={() => openSubject(subject.id)}
-                >
-                  <span className={styles.subjectTileTitle}>{subject.title}</span>
-                  <span className={styles.subjectTileMeta}>
-                    {subject.themes.length} {subject.themes.length === 1 ? "theme" : "themes"} · {conceptCount}{" "}
-                    {conceptCount === 1 ? "concept" : "concepts"}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className={styles.subjectPanel}>
-            <div className={styles.subjectPanelHeader}>
-              <button type="button" className={styles.backToSubjects} onClick={closeSubject}>
-                ← All subjects
-              </button>
-              <span className={styles.subjectPanelTitle}>{selectedSubject.title}</span>
-            </div>
-
-            <input
-              className="input"
-              placeholder="Search themes, concepts, or sub-concepts…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-
-            {query.trim() ? (
-              <div className={styles.searchResults}>
-                {searching && <p className="text-secondary">Searching…</p>}
-                {!searching && searchResults?.length === 0 && <p className="text-secondary">No matches.</p>}
-                {!searching &&
-                  searchResults?.map((hit) => {
-                    const themeIdToAdd = hit.type === "THEME" ? hit.idLink : hit.themeId;
-                    const conceptIdToAdd = hit.type === "CONCEPT" ? hit.idLink : hit.type === "SUBCONCEPT" ? hit.conceptId : null;
-                    return (
-                      <div key={`${hit.type}-${hit.idLink}`} className={styles.searchHit}>
-                        <div className={styles.searchHitInfo}>
-                          <span className={`badge ${styles.hitTypeBadge}`}>{hit.type}</span>
-                          <span className={styles.searchHitName}>{hit.name}</span>
-                          {(hit.conceptTitle || hit.themeTitle) && (
-                            <span className={styles.searchHitBreadcrumb}>
-                              in {[hit.conceptTitle, hit.themeTitle].filter(Boolean).join(" › ")}
-                            </span>
-                          )}
-                        </div>
-                        <div className={styles.searchHitActions}>
-                          {conceptIdToAdd && (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => void handleAdd("CONCEPT", undefined, conceptIdToAdd)}
-                              disabled={busy || addedConceptIds.has(conceptIdToAdd)}
-                            >
-                              {addedConceptIds.has(conceptIdToAdd)
-                                ? "Concept added ✓"
-                                : hit.type === "CONCEPT"
-                                  ? "Add Concept"
-                                  : `Add "${hit.conceptTitle}"`}
-                            </button>
-                          )}
-                          {themeIdToAdd && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => void handleAdd("THEME", themeIdToAdd)}
-                              disabled={busy || addedThemeIds.has(themeIdToAdd)}
-                            >
-                              {addedThemeIds.has(themeIdToAdd)
-                                ? "Theme added ✓"
-                                : hit.type === "THEME"
-                                  ? "Add whole Theme"
-                                  : `Add Theme "${hit.themeTitle}"`}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : (
-              <div className={styles.tree}>
-                {selectedSubject.themes.map((theme) => {
-                  const themeOpen = expandedThemes.has(theme.id);
-                  return (
-                    <div key={theme.id} className={styles.themeBlock}>
-                      <div className={styles.themeRow}>
-                        <button
-                          type="button"
-                          className={styles.themeToggle}
-                          onClick={() => setExpandedThemes((prev) => toggleSetMember(prev, theme.id))}
-                        >
-                          <span className={themeOpen ? styles.chevronOpen : styles.chevron}>▸</span>
-                          <span className={styles.themeTitle}>{theme.title}</span>
-                          <span className="badge">
-                            {theme.concepts.length} {theme.concepts.length === 1 ? "concept" : "concepts"}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => void handleAdd("THEME", theme.id)}
-                          disabled={busy || addedThemeIds.has(theme.id)}
-                        >
-                          {addedThemeIds.has(theme.id) ? "Added ✓" : "Add whole Theme"}
-                        </button>
-                      </div>
-
-                      {themeOpen && (
-                        <div className={styles.concepts}>
-                          {theme.concepts.map((concept) => {
-                            const conceptOpen = expandedConcepts.has(concept.id);
-                            return (
-                              <div key={concept.id} className={styles.conceptBlock}>
-                                <div className={styles.conceptRow}>
-                                  <button
-                                    type="button"
-                                    className={styles.conceptToggle}
-                                    onClick={() => setExpandedConcepts((prev) => toggleSetMember(prev, concept.id))}
-                                  >
-                                    <span className={conceptOpen ? styles.chevronOpen : styles.chevron}>▸</span>
-                                    <span className={styles.conceptTitle}>{concept.title}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => void handleAdd("CONCEPT", undefined, concept.id)}
-                                    disabled={busy || addedConceptIds.has(concept.id)}
-                                  >
-                                    {addedConceptIds.has(concept.id) ? "Added ✓" : "Add"}
-                                  </button>
-                                </div>
-
-                                {conceptOpen && (
-                                  <ul className={styles.subConceptList}>
-                                    {concept.subConcepts.map((subConcept) => (
-                                      <li key={subConcept.id} className={styles.subConceptRow}>
-                                        <span className={styles.dot} />
-                                        {subConcept.title}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+        <TreePicker
+          tree={tree}
+          selectedSubject={selectedSubject}
+          onOpenSubject={openSubject}
+          onCloseSubject={closeSubject}
+          query={query}
+          onQueryChange={setQuery}
+          searching={searching}
+          searchResults={searchResults}
+          expandedThemes={expandedThemes}
+          onExpandedThemesChange={setExpandedThemes}
+          expandedConcepts={expandedConcepts}
+          onExpandedConceptsChange={setExpandedConcepts}
+          addedThemeIds={addedThemeIds}
+          addedConceptIds={addedConceptIds}
+          busy={busy}
+          onAdd={(itemType, themeId, conceptId) => void handleAdd(itemType, themeId, conceptId)}
+        />
       </div>
 
       {error && <p className="text-danger">{error}</p>}
 
       {prereqSuggestion && (
-        <Modal
-          title="Add its prerequisites too?"
+        <PrereqSuggestionModal
+          suggestions={prereqSuggestion}
+          busy={busy}
+          onAdd={(conceptId) => void addSuggestedPrerequisite(conceptId)}
           onClose={() => setPrereqSuggestion(null)}
-          actions={
-            <button type="button" className="btn btn-secondary" onClick={() => setPrereqSuggestion(null)}>
-              Not now
-            </button>
-          }
-        >
-          <p className={styles.prereqHint}>
-            This Concept depends on the following — not required, but a learner following this path may need them
-            too.
-          </p>
-          <ul className={styles.prereqList}>
-            {prereqSuggestion.map((p) => (
-              <li key={p.id} className={styles.prereqRow}>
-                <span className={styles.prereqTitle}>{p.title}</span>
-                <span className={styles.prereqTheme}>{p.themeTitle}</span>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => void addSuggestedPrerequisite(p.id)}
-                  disabled={busy}
-                >
-                  Add
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Modal>
+        />
       )}
     </div>
   );

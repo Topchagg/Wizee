@@ -3,103 +3,26 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Modal } from "@/components/Modal";
 import { apiFetch } from "@/lib/api";
 import { toggleSetMember } from "@/lib/set-utils";
+import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { PrerequisitesModal } from "./_components/PrerequisitesModal";
+import { SuggestionsPanel } from "./_components/SuggestionsPanel";
+import { TreeView } from "./_components/TreeView";
+import { AddChildForm } from "./_components/AddChildForm";
+import { extractErrorMessage } from "./_components/types";
+import type {
+  FlatConcept,
+  PendingDelete,
+  PrereqConcept,
+  Suggestion,
+  TreeActions,
+  TreeConcept,
+  TreeSubConcept,
+  TreeSubject,
+  TreeTheme,
+} from "./_components/types";
 import styles from "./page.module.css";
-
-type TreeSubConcept = { id: string; title: string; slug: string };
-type TreeConcept = { id: string; title: string; subConcepts: TreeSubConcept[] };
-type TreeTheme = { id: string; title: string; concepts: TreeConcept[] };
-type TreeSubject = { id: string; title: string; slug: string; themes: TreeTheme[] };
-
-type PendingDelete = { path: string; kind: string; title: string };
-
-type Suggestion = {
-  id: string;
-  type: "THEME" | "CONCEPT" | "SUBCONCEPT";
-  title: string;
-  createdAt: string;
-  subject: { title: string } | null;
-  theme: { title: string; subject: { title: string } } | null;
-  concept: { title: string; theme: { title: string; subject: { title: string } } } | null;
-  suggestedBy: { displayName: string | null; email: string };
-};
-
-// "Suggest a Theme" targets a Subject directly; "Suggest a Concept"/"a
-// Sub-concept" target a Theme/Concept, which each carry their own ancestor
-// chain — this just reads whichever branch is non-null into one label.
-function suggestionContext(s: Suggestion): string {
-  if (s.subject) return s.subject.title;
-  if (s.theme) return `${s.theme.subject.title} → ${s.theme.title}`;
-  if (s.concept) return `${s.concept.theme.subject.title} → ${s.concept.theme.title} → ${s.concept.title}`;
-  return "—";
-}
-
-const SUGGESTION_KIND_LABEL: Record<Suggestion["type"], string> = {
-  THEME: "Theme",
-  CONCEPT: "Concept",
-  SUBCONCEPT: "Sub-concept",
-};
-
-type PrereqConcept = { id: string; title: string; themeTitle: string };
-type FlatConcept = { id: string; title: string; themeTitle: string; subjectTitle: string };
-
-function extractErrorMessage(body: { message?: string | string[] }, fallback: string): string {
-  if (Array.isArray(body.message)) return body.message[0] ?? fallback;
-  return body.message ?? fallback;
-}
-
-// Every "add" row is a self-contained form — it owns its own input text and
-// submitting state, so the tree above doesn't need a title/loading slot per
-// node in the whole structure just to support typing into one at a time.
-function AddChildForm({
-  placeholder,
-  onSubmit,
-}: {
-  placeholder: string;
-  onSubmit: (title: string) => Promise<void>;
-}) {
-  const [title, setTitle] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (!title.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onSubmit(title.trim());
-      setTitle("");
-    } catch {
-      setError("Couldn't add that.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className={styles.addRow}>
-      <input
-        className="input"
-        placeholder={placeholder}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && void handleSubmit()}
-        disabled={submitting}
-      />
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm"
-        onClick={() => void handleSubmit()}
-        disabled={submitting || !title.trim()}
-      >
-        {submitting ? "Adding…" : "+ Add"}
-      </button>
-      {error && <span className={styles.addError}>{error}</span>}
-    </div>
-  );
-}
 
 export default function AdminPage() {
   const { user, loading: authLoading, appUser, appUserLoading } = useAuth();
@@ -246,8 +169,8 @@ export default function AdminPage() {
   };
 
   // Deletion cascades all the way down (see AdminService server-side) — the
-  // confirmation step opens the shared Modal below rather than a native
-  // confirm(), so it matches the rest of the app's dialogs.
+  // confirmation step opens a modal rather than a native confirm(), so it
+  // matches the rest of the app's dialogs.
   const remove = (path: string, kind: string, title: string) => {
     setPendingDelete({ path, kind, title });
   };
@@ -291,6 +214,23 @@ export default function AdminPage() {
         .slice(0, 8)
     : [];
 
+  const actions: TreeActions = {
+    expandedSubjects,
+    expandedThemes,
+    expandedConcepts,
+    onToggleSubject: (id) => setExpandedSubjects((prev) => toggleSetMember(prev, id)),
+    onToggleTheme: (id) => setExpandedThemes((prev) => toggleSetMember(prev, id)),
+    onToggleConcept: (id) => setExpandedConcepts((prev) => toggleSetMember(prev, id)),
+    onCreateTheme: (subjectId, title) => create("/admin/themes", { subjectId, title }),
+    onCreateConcept: (themeId, title) => create("/admin/concepts", { themeId, title }),
+    onCreateSubConcept: (conceptId, title) => create("/admin/sub-concepts", { conceptId, title }),
+    onDeleteSubject: (subject: TreeSubject) => remove(`/admin/subjects/${subject.id}`, "Theme/Concept/Sub-concept", subject.title),
+    onDeleteTheme: (theme: TreeTheme) => remove(`/admin/themes/${theme.id}`, "Concept/Sub-concept", theme.title),
+    onDeleteConcept: (concept: TreeConcept) => remove(`/admin/concepts/${concept.id}`, "Sub-concept", concept.title),
+    onDeleteSubConcept: (sc: TreeSubConcept) => remove(`/admin/sub-concepts/${sc.id}`, "video/task", sc.title),
+    onOpenPrereqs: openPrerequisites,
+  };
+
   return (
     <div className="page-shell">
       <div>
@@ -301,44 +241,8 @@ export default function AdminPage() {
         </p>
       </div>
 
-      {suggestions !== null && suggestions.length > 0 && (
-        <div className={`card ${styles.suggestionsCard}`}>
-          <h2 className={styles.suggestionsTitle}>
-            Suggestions <span className="badge">{suggestions.length}</span>
-          </h2>
-          <ul className={styles.suggestionsList}>
-            {suggestions.map((s) => (
-              <li key={s.id} className={styles.suggestionRow}>
-                <div className={styles.suggestionInfo}>
-                  <span className="badge">{SUGGESTION_KIND_LABEL[s.type]}</span>
-                  <span className={styles.suggestionTitle}>{s.title}</span>
-                  <span className={styles.suggestionContext}>under {suggestionContext(s)}</span>
-                  <span className={styles.suggestionBy}>
-                    — suggested by {s.suggestedBy.displayName ?? s.suggestedBy.email}
-                  </span>
-                </div>
-                <div className={styles.suggestionActions}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => void decideSuggestion(s.id, "reject")}
-                    disabled={workingSuggestionId === s.id}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => void decideSuggestion(s.id, "approve")}
-                    disabled={workingSuggestionId === s.id}
-                  >
-                    {workingSuggestionId === s.id ? "Working…" : "Approve"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {suggestions !== null && (
+        <SuggestionsPanel suggestions={suggestions} workingSuggestionId={workingSuggestionId} onDecide={(id, action) => void decideSuggestion(id, action)} />
       )}
 
       <div className={`card ${styles.addRowCard}`}>
@@ -347,225 +251,30 @@ export default function AdminPage() {
 
       {error && <p className="text-danger">{error}</p>}
 
-      <div className={`card ${styles.tree}`}>
-        {tree.length === 0 && <p className="text-secondary">No Subjects yet — add one above.</p>}
-        {tree.map((subject) => {
-          const subjectOpen = expandedSubjects.has(subject.id);
-          return (
-            <div key={subject.id} className={styles.subjectBlock}>
-              <div className={styles.rowShell}>
-                <button
-                  type="button"
-                  className={styles.subjectRow}
-                  onClick={() => setExpandedSubjects((prev) => toggleSetMember(prev, subject.id))}
-                >
-                  <span className={subjectOpen ? styles.chevronOpen : styles.chevron}>▸</span>
-                  <span className={styles.subjectTitle}>{subject.title}</span>
-                  <span className="badge">{subject.themes.length} {subject.themes.length === 1 ? "theme" : "themes"}</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => remove(`/admin/subjects/${subject.id}`, "Theme/Concept/Sub-concept", subject.title)}
-                >
-                  Delete
-                </button>
-              </div>
-
-              {subjectOpen && (
-                <div className={styles.nested}>
-                  <AddChildForm
-                    placeholder="New Theme title"
-                    onSubmit={(title) => create("/admin/themes", { subjectId: subject.id, title })}
-                  />
-                  {subject.themes.map((theme) => {
-                    const themeOpen = expandedThemes.has(theme.id);
-                    return (
-                      <div key={theme.id} className={styles.themeBlock}>
-                        <div className={styles.rowShell}>
-                          <button
-                            type="button"
-                            className={styles.themeRow}
-                            onClick={() => setExpandedThemes((prev) => toggleSetMember(prev, theme.id))}
-                          >
-                            <span className={themeOpen ? styles.chevronOpen : styles.chevron}>▸</span>
-                            <span className={styles.themeTitle}>{theme.title}</span>
-                            <span className="badge">
-                              {theme.concepts.length} {theme.concepts.length === 1 ? "concept" : "concepts"}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => remove(`/admin/themes/${theme.id}`, "Concept/Sub-concept", theme.title)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-
-                        {themeOpen && (
-                          <div className={styles.nested}>
-                            <AddChildForm
-                              placeholder="New Concept title"
-                              onSubmit={(title) => create("/admin/concepts", { themeId: theme.id, title })}
-                            />
-                            {theme.concepts.map((concept) => {
-                              const conceptOpen = expandedConcepts.has(concept.id);
-                              return (
-                                <div key={concept.id} className={styles.conceptBlock}>
-                                  <div className={styles.rowShell}>
-                                    <button
-                                      type="button"
-                                      className={styles.conceptRow}
-                                      onClick={() => setExpandedConcepts((prev) => toggleSetMember(prev, concept.id))}
-                                    >
-                                      <span className={conceptOpen ? styles.chevronOpen : styles.chevron}>▸</span>
-                                      <span className={styles.conceptTitle}>{concept.title}</span>
-                                      <span className="badge">{concept.subConcepts.length} sub-concepts</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-ghost btn-sm"
-                                      onClick={() => openPrerequisites(concept.id, concept.title)}
-                                    >
-                                      Prereqs
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-ghost btn-sm"
-                                      onClick={() => remove(`/admin/concepts/${concept.id}`, "Sub-concept", concept.title)}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-
-                                  {conceptOpen && (
-                                    <div className={styles.nested}>
-                                      <AddChildForm
-                                        placeholder="New Sub-concept title"
-                                        onSubmit={(title) => create("/admin/sub-concepts", { conceptId: concept.id, title })}
-                                      />
-                                      {concept.subConcepts.length === 0 ? (
-                                        <p className={styles.emptyHint}>No Sub-concepts yet.</p>
-                                      ) : (
-                                        <ul className={styles.subConceptList}>
-                                          {concept.subConcepts.map((sc) => (
-                                            <li key={sc.id} className={styles.subConceptRow}>
-                                              <span className={styles.dot} />
-                                              <span className={styles.subConceptTitle}>{sc.title}</span>
-                                              <span className={styles.subConceptSlug}>{sc.slug}</span>
-                                              <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => remove(`/admin/sub-concepts/${sc.id}`, "video/task", sc.title)}
-                                              >
-                                                Delete
-                                              </button>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <TreeView tree={tree} actions={actions} />
 
       {pendingDelete && (
-        <Modal
-          title={`Delete "${pendingDelete.title}"?`}
-          onClose={() => !deleting && setPendingDelete(null)}
-          actions={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>
-                Cancel
-              </button>
-              <button type="button" className="btn btn-danger" onClick={() => void confirmDelete()} disabled={deleting}>
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </>
-          }
-        >
-          This also deletes every {pendingDelete.kind} nested under it — this can&rsquo;t be undone.
-        </Modal>
+        <DeleteConfirmModal
+          pendingDelete={pendingDelete}
+          deleting={deleting}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void confirmDelete()}
+        />
       )}
 
       {prereqTarget && (
-        <Modal
-          title={`Prerequisites for "${prereqTarget.conceptTitle}"`}
+        <PrerequisitesModal
+          conceptTitle={prereqTarget.conceptTitle}
+          prereqList={prereqList}
+          candidates={prereqCandidates}
+          query={prereqQuery}
+          onQueryChange={setPrereqQuery}
+          busyId={prereqBusyId}
+          error={prereqError}
+          onAdd={(id) => void addPrerequisite(id)}
+          onRemove={(id) => void removePrerequisite(id)}
           onClose={() => setPrereqTarget(null)}
-          actions={
-            <button type="button" className="btn btn-primary" onClick={() => setPrereqTarget(null)}>
-              Done
-            </button>
-          }
-        >
-          <p className={styles.prereqHint}>
-            Concepts a learner should already know before this one — may live in any Theme, including a different one.
-          </p>
-
-          {prereqList === null ? (
-            <p className="text-secondary">Loading…</p>
-          ) : prereqList.length === 0 ? (
-            <p className="text-secondary">No prerequisites set yet.</p>
-          ) : (
-            <ul className={styles.prereqList}>
-              {prereqList.map((p) => (
-                <li key={p.id} className={styles.prereqRow}>
-                  <span className={styles.prereqTitle}>{p.title}</span>
-                  <span className={styles.prereqTheme}>{p.themeTitle}</span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => void removePrerequisite(p.id)}
-                    disabled={prereqBusyId === p.id}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <input
-            className={`input ${styles.prereqSearchInput}`}
-            placeholder="Search Concepts to add as a prerequisite…"
-            value={prereqQuery}
-            onChange={(e) => setPrereqQuery(e.target.value)}
-          />
-          {prereqCandidates.length > 0 && (
-            <ul className={styles.prereqList}>
-              {prereqCandidates.map((c) => (
-                <li key={c.id} className={styles.prereqRow}>
-                  <span className={styles.prereqTitle}>{c.title}</span>
-                  <span className={styles.prereqTheme}>
-                    {c.subjectTitle} → {c.themeTitle}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => void addPrerequisite(c.id)}
-                    disabled={prereqBusyId === c.id}
-                  >
-                    Add
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {prereqError && <p className={`text-danger ${styles.prereqError}`}>{prereqError}</p>}
-        </Modal>
+        />
       )}
     </div>
   );

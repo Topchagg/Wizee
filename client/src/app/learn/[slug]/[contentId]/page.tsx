@@ -1,198 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Modal } from "@/components/Modal";
 import { apiFetch } from "@/lib/api";
+import { AuthorCard } from "./_components/AuthorCard";
+import { Breadcrumb } from "./_components/Breadcrumb";
+import { PreviewStep } from "./_components/PreviewStep";
+import { ProgressSidebar } from "./_components/ProgressSidebar";
+import { SiblingsCard } from "./_components/SiblingsCard";
+import { TestStep } from "./_components/TestStep";
+import type { ContentInfo, Step, SubConceptDetail, TaskResult, TestInfo } from "./_components/types";
+import { VideoStep } from "./_components/VideoStep";
 import styles from "./page.module.css";
-
-type TestInfo = {
-  id: string;
-  type: string;
-  prompt: string;
-  choices: unknown;
-  contentId?: string;
-  // Only present on this content's own homework tasks (toContentDto) — never
-  // on solved-on-screen tasks rolled in from a sibling content's own
-  // endpoint, and null/0 unless the viewer is this content's creator.
-  attemptedCount?: number;
-  passRate?: number | null;
-};
-type ContentInfo = {
-  id: string;
-  video: string;
-  previewVideo: string | null;
-  description: string | null;
-  creatorName: string | null;
-  creatorId: string | null;
-  creatorPhotoUrl: string | null;
-  tests: TestInfo[];
-  solvedOnScreenCount: number;
-  attemptedCount: number;
-  passRate: number | null;
-  skipRate: number | null;
-};
-type SiblingSubConcept = { id: string; slug: string; title: string; contentId: string | null };
-type BuildsOnEntry = { id: string; title: string; themeTitle: string; slug: string; contentId: string };
-type SubConceptDetail = {
-  id: string;
-  slug: string;
-  title: string;
-  breadcrumb: { subject: string; theme: string; concept: string };
-  content: ContentInfo | null;
-  contentCount: number;
-  masteredCount: number;
-  siblings: SiblingSubConcept[];
-  buildsOn: BuildsOnEntry[];
-};
-
-type Step = "preview" | "video" | "test";
-type TaskResult = "passed" | "failed";
-
-// Shared shell for every modal on this page (gate + no-alternative) — owns
-// the overlay/card markup and Escape-to-close so neither caller repeats it.
-function Modal({
-  title,
-  onClose,
-  actions,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  actions: ReactNode;
-  children: ReactNode;
-}) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="card modal-card" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title">{title}</h2>
-        <p className="modal-body">{children}</p>
-        <div className="modal-actions">{actions}</div>
-      </div>
-    </div>
-  );
-}
-
-// One homework task's own card — its own choice selection, its own submit,
-// its own pass/fail feedback. The Test step renders one of these per task
-// this content has, all visible at once (see the golden rule: moving from
-// Video into Test always shows the FULL homework set, never just one).
-function HwTaskCard({
-  task,
-  answer,
-  result,
-  submitting,
-  onSelect,
-  onSubmit,
-}: {
-  task: TestInfo;
-  answer: string | undefined;
-  result: TaskResult | undefined;
-  submitting: boolean;
-  onSelect: (choice: string) => void;
-  onSubmit: () => void;
-}) {
-  const choices = Array.isArray(task.choices) ? (task.choices as string[]) : [];
-  return (
-    <div className={`card ${styles.practice}`}>
-      <p className={styles.prompt}>{task.prompt}</p>
-      {!!task.attemptedCount && (
-        // Same difficulty signal as the video-level pass rate, one level
-        // down — creator-only (see toContentDto), a confusing or
-        // too-easy/too-hard QUESTION is a separate signal from a weak video.
-        <p className={styles.contentStat}>
-          <strong>{Math.round((task.passRate ?? 0) * 100)}%</strong> pass rate ·{" "}
-          {task.attemptedCount} {task.attemptedCount === 1 ? "learner" : "learners"}
-        </p>
-      )}
-      <div className={styles.choices}>
-        {choices.map((choice) => (
-          <button
-            key={choice}
-            type="button"
-            className={answer === choice ? styles.choiceSelected : styles.choice}
-            onClick={() => onSelect(choice)}
-            disabled={submitting}
-          >
-            {choice}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={answer === undefined || submitting}>
-        {submitting ? "Submitting…" : "Submit"}
-      </button>
-      {result && (
-        <p className={result === "passed" ? styles.pass : styles.fail}>
-          {result === "passed" ? "✓ Correct!" : "✗ Not quite."}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// A solved-on-screen task's own card — always from a SIBLING explanation
-// (the server never returns this content's own), so it always links to that
-// other content's page rather than this one's video.
-function SolvedTaskCard({
-  task,
-  slug,
-  answer,
-  result,
-  submitting,
-  onSelect,
-  onSubmit,
-}: {
-  task: TestInfo;
-  slug: string;
-  answer: string | undefined;
-  result: TaskResult | undefined;
-  submitting: boolean;
-  onSelect: (choice: string) => void;
-  onSubmit: () => void;
-}) {
-  const choices = Array.isArray(task.choices) ? (task.choices as string[]) : [];
-  return (
-    <div className={`card ${styles.practice}`}>
-      <div className={styles.practiceHeader}>
-        <span className="badge">Worked out in another explanation</span>
-        {task.contentId && (
-          <Link href={`/learn/${slug}/${task.contentId}`} className="btn btn-ghost btn-sm">
-            See it solved →
-          </Link>
-        )}
-      </div>
-      <p className={styles.prompt}>{task.prompt}</p>
-      <div className={styles.choices}>
-        {choices.map((choice) => (
-          <button
-            key={choice}
-            type="button"
-            className={answer === choice ? styles.choiceSelected : styles.choice}
-            onClick={() => onSelect(choice)}
-            disabled={submitting}
-          >
-            {choice}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={answer === undefined || submitting}>
-        {submitting ? "Submitting…" : "Submit"}
-      </button>
-      {result && (
-        <p className={result === "passed" ? styles.pass : styles.fail}>
-          {result === "passed" ? "✓ Correct!" : "✗ Not quite."}
-        </p>
-      )}
-    </div>
-  );
-}
 
 export default function LearnPage() {
   const { slug, contentId } = useParams<{ slug: string; contentId: string }>();
@@ -450,284 +271,69 @@ export default function LearnPage() {
   return (
     <div className={styles.learnShell}>
       <div className={styles.main}>
-        <div className={styles.breadcrumb}>
-          <span>{detail.breadcrumb.subject}</span>
-          <span className={styles.crumbSep}>/</span>
-          <span>{detail.breadcrumb.theme}</span>
-          <span className={styles.crumbSep}>/</span>
-          <span>{detail.breadcrumb.concept}</span>
-        </div>
-        {detail.buildsOn.length > 0 && (
-          // Light, non-blocking note — never a hard gate (readme: the
-          // platform surfaces information, it doesn't withhold access).
-          <p className={styles.buildsOn}>
-            Builds on:{" "}
-            {detail.buildsOn.map((b, i) => (
-              <span key={b.id}>
-                {i > 0 && ", "}
-                <Link href={`/learn/${b.slug}/${b.contentId}`} className={styles.buildsOnLink}>
-                  {b.title}
-                </Link>
-              </span>
-            ))}
-          </p>
-        )}
+        <Breadcrumb breadcrumb={detail.breadcrumb} buildsOn={detail.buildsOn} />
         <h1 className={styles.title}>{detail.title}</h1>
         {content.description && <p className={styles.hook}>{content.description}</p>}
 
         {step === "preview" && content.previewVideo && (
-          <div className={`card ${styles.stepCard}`}>
-            <div className={styles.videoFrame}>
-              <span className="badge">{previewDuration ? `Preview · ${Math.round(previewDuration)}s` : "Preview"}</span>
-              <video
-                src={content.previewVideo}
-                controls
-                className={styles.previewVideo}
-                onLoadedMetadata={(e) => setPreviewDuration(e.currentTarget.duration)}
-              />
-            </div>
-            <div className={styles.stepFooter}>
-              <button type="button" className="btn btn-primary" onClick={() => goToStep("video")}>
-                Continue to video →
-              </button>
-            </div>
-          </div>
+          <PreviewStep
+            previewVideo={content.previewVideo}
+            previewDuration={previewDuration}
+            onDuration={setPreviewDuration}
+            onContinue={() => goToStep("video")}
+          />
         )}
 
         {step === "video" && (
-          <div className={`card ${styles.stepCard}`}>
-            <div className={styles.videoFrame}>
-              {/* key forces a fresh <video> element when switching to an alternative */}
-              <video
-                ref={videoRef}
-                key={content.id}
-                src={content.video}
-                controls
-                onEnded={handleVideoEnded}
-                className={styles.video}
-              />
-            </div>
-            <div className={styles.stepFooterBetween}>
-              <div className={styles.stepFooterLeft}>
-                {content.previewVideo && (
-                  <button type="button" className="btn btn-ghost" onClick={() => goToStep("preview")}>
-                    ← Back
-                  </button>
-                )}
-                {/* Always clickable — if they haven't submitted the practice question
-                    yet, handleAnotherExplanation redirects them to it instead of
-                    calling the (still server-gated) alternative endpoint. */}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => void handleAnotherExplanation()}
-                  disabled={altLoading}
-                >
-                  {altLoading ? "Loading…" : "Another Explanation"}
-                </button>
-              </div>
-              <button type="button" className="btn btn-primary" onClick={() => goToStep("test")}>
-                Continue to practice →
-              </button>
-            </div>
-          </div>
+          <VideoStep
+            videoRef={videoRef}
+            videoSrc={content.video}
+            contentId={content.id}
+            hasPreview={!!content.previewVideo}
+            onEnded={handleVideoEnded}
+            onBack={() => goToStep("preview")}
+            onContinue={() => goToStep("test")}
+            altLoading={altLoading}
+            onAnotherExplanation={() => void handleAnotherExplanation()}
+          />
         )}
 
         {step === "test" && (
-          <>
-            {solvedTasks.length > 0 ? (
-              <div className={styles.hwList}>
-                <h2 className={styles.practiceTitle}>
-                  Solved on-screen — {solvedTasks.length} task{solvedTasks.length === 1 ? "" : "s"}
-                </h2>
-                {solvedTasks.map((task) => (
-                  <SolvedTaskCard
-                    key={task.id}
-                    task={task}
-                    slug={slug}
-                    answer={solvedAnswers[task.id]}
-                    result={solvedResults[task.id]}
-                    submitting={submittingSolvedTaskId === task.id}
-                    onSelect={(choice) => setSolvedAnswers((prev) => ({ ...prev, [task.id]: choice }))}
-                    onSubmit={() => void handleSubmitSolved(task)}
-                  />
-                ))}
-              </div>
-            ) : (
-              content.tests.length > 0 && (
-                <div className={styles.hwList}>
-                  <div className={styles.practiceHeader}>
-                    <h2 className={styles.practiceTitle}>Practice — {content.tests.length} task{content.tests.length === 1 ? "" : "s"}</h2>
-                    {/* Golden rule: "Get other tasks" only ever surfaces
-                        solved-on-screen tasks, and only once every homework
-                        task shown here has been attempted at least once. */}
-                    {content.solvedOnScreenCount > 0 && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => void handleFetchSolvedTasks()}
-                        disabled={loadingSolved || !allHwAttempted}
-                        title={allHwAttempted ? undefined : "Submit an answer to every task above to get new tasks"}
-                      >
-                        {loadingSolved ? "Loading…" : "🎲 Get other tasks"}
-                      </button>
-                    )}
-                  </div>
-                  {content.tests.map((task) => (
-                    <HwTaskCard
-                      key={task.id}
-                      task={task}
-                      answer={hwAnswers[task.id]}
-                      result={hwResults[task.id]}
-                      submitting={submittingTaskId === task.id}
-                      onSelect={(choice) => setHwAnswers((prev) => ({ ...prev, [task.id]: choice }))}
-                      onSubmit={() => void handleSubmitHw(task)}
-                    />
-                  ))}
-                </div>
-              )
-            )}
-
-            <div className={styles.actions}>
-              <button type="button" className="btn btn-ghost" onClick={() => goToStep("video")}>
-                ← Back
-              </button>
-              <div className={styles.actionsRight}>
-                {/* Always clickable — if they haven't submitted the practice question
-                    yet, handleAnotherExplanation redirects them to it instead of
-                    calling the (still server-gated) alternative endpoint. */}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => void handleAnotherExplanation()}
-                  disabled={altLoading}
-                >
-                  {altLoading ? "Loading…" : "Another Explanation"}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => void handleNext()}
-                  disabled={nextLoading}
-                >
-                  {nextLoading ? "Loading…" : "Next →"}
-                </button>
-              </div>
-            </div>
-          </>
+          <TestStep
+            slug={slug}
+            homeworkTasks={content.tests}
+            hwAnswers={hwAnswers}
+            hwResults={hwResults}
+            submittingTaskId={submittingTaskId}
+            onSelectHw={(taskId, choice) => setHwAnswers((prev) => ({ ...prev, [taskId]: choice }))}
+            onSubmitHw={(task) => void handleSubmitHw(task)}
+            solvedTasks={solvedTasks}
+            solvedAnswers={solvedAnswers}
+            solvedResults={solvedResults}
+            submittingSolvedTaskId={submittingSolvedTaskId}
+            onSelectSolved={(taskId, choice) => setSolvedAnswers((prev) => ({ ...prev, [taskId]: choice }))}
+            onSubmitSolved={(task) => void handleSubmitSolved(task)}
+            solvedOnScreenCount={content.solvedOnScreenCount}
+            allHwAttempted={allHwAttempted}
+            loadingSolved={loadingSolved}
+            onFetchSolvedTasks={() => void handleFetchSolvedTasks()}
+            onBack={() => goToStep("video")}
+            altLoading={altLoading}
+            onAnotherExplanation={() => void handleAnotherExplanation()}
+            nextLoading={nextLoading}
+            onNext={() => void handleNext()}
+          />
         )}
 
         {error && <p className="text-danger">{error}</p>}
       </div>
 
       <aside className={styles.sidebar}>
-        <div className={`card ${styles.siblingCard}`}>
-          <h2 className={styles.siblingHeading}>{detail.breadcrumb.concept}</h2>
-          <p className={styles.siblingSubheading}>Sub-concepts in this Concept</p>
-          <ol className={styles.siblingList}>
-            {detail.siblings.map((sib, idx) => {
-              const isCurrent = sib.slug === slug;
-              const rowClass = isCurrent ? styles.siblingRowActive : sib.contentId ? styles.siblingRow : styles.siblingRowEmpty;
-              const rowContent = (
-                <>
-                  <span className={styles.siblingDot}>{isCurrent ? "●" : idx + 1}</span>
-                  <span className={styles.siblingTitle}>{sib.title}</span>
-                </>
-              );
-              return (
-                <li key={sib.id}>
-                  {sib.contentId && !isCurrent ? (
-                    <Link href={`/learn/${sib.slug}/${sib.contentId}`} className={rowClass}>
-                      {rowContent}
-                    </Link>
-                  ) : (
-                    <span className={rowClass}>{rowContent}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
-        {content.creatorName && (
-          <div className={`card ${styles.authorCard}`}>
-            <h2 className={styles.siblingHeading}>Author</h2>
-            <div className={styles.authorRow}>
-              <span className={styles.creatorAvatar}>
-                {content.creatorPhotoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- external Storage/photo URL, not a local asset
-                  <img src={content.creatorPhotoUrl} alt="" className={styles.creatorAvatarImg} />
-                ) : (
-                  content.creatorName.trim().charAt(0).toUpperCase()
-                )}
-              </span>
-              <div className={styles.creatorInfo}>
-                <span className={styles.creatorLabel}>
-                  Explained by <strong>{content.creatorName}</strong>
-                </span>
-                {otherExplanations > 0 && <span className={styles.creatorBadge}>Other explanation available</span>}
-              </div>
-            </div>
-            {content.creatorId && (
-              <Link href={`/chat/${content.creatorId}`} className={`btn btn-secondary btn-sm ${styles.contactButton}`}>
-                Contact teacher
-              </Link>
-            )}
-            {content.attemptedCount > 0 && (
-              // Difficulty signal, creator-only — the server only ever
-              // computes these when the viewer IS this content's creator
-              // (see SubConceptsService.toContentDto); anyone else always
-              // gets attemptedCount 0, which keeps this block hidden without
-              // the client needing its own role check. Based on distinct
-              // learners, not raw attempt counts, so retries don't skew it.
-              <div className={styles.contentStats}>
-                <span className={styles.contentStat}>
-                  <strong>{Math.round((content.passRate ?? 0) * 100)}%</strong> pass rate
-                </span>
-                <span className={styles.contentStat}>
-                  <strong>{Math.round((content.skipRate ?? 0) * 100)}%</strong> ask for another explanation
-                </span>
-                <span className={styles.contentStatMeta}>
-                  based on {content.attemptedCount} {content.attemptedCount === 1 ? "learner" : "learners"}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+        <SiblingsCard conceptTitle={detail.breadcrumb.concept} siblings={detail.siblings} currentSlug={slug} />
+        <AuthorCard content={content} otherExplanations={otherExplanations} />
       </aside>
 
-      <aside className={styles.stepSidebar}>
-        <div className={`card ${styles.stepCardList}`}>
-          <h2 className={styles.siblingHeading}>Your progress</h2>
-          <ol className={styles.stepList}>
-            {steps.map((s, idx) => {
-              const state = idx < stepIndex ? "done" : idx === stepIndex ? "active" : "upcoming";
-              const clickable = idx <= maxStepIndex;
-              return (
-                <li key={s.key} className={styles.stepNode}>
-                  <div className={styles.stepNodeMarker}>
-                    <button
-                      type="button"
-                      className={`${styles.stepDot} ${styles[`stepDot_${state}`]}`}
-                      onClick={() => clickable && goToStep(s.key)}
-                      disabled={!clickable}
-                    >
-                      {state === "done" ? "✓" : idx + 1}
-                    </button>
-                    {idx < steps.length - 1 && (
-                      <span className={idx < stepIndex ? styles.stepLineDone : styles.stepLine} />
-                    )}
-                  </div>
-                  <div className={styles.stepNodeBody}>
-                    <span className={state === "upcoming" ? styles.stepLabelMuted : styles.stepLabel}>{s.label}</span>
-                    <span className={styles.stepCaption}>{s.caption}</span>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      </aside>
+      <ProgressSidebar steps={steps} stepIndex={stepIndex} maxStepIndex={maxStepIndex} onGoToStep={goToStep} />
 
       {showGateModal && (
         <Modal
