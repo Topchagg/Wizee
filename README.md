@@ -6,7 +6,7 @@ Wizee is a concept-based learning platform designed to make education structured
 
 Instead of forcing users through hours of lectures, Wizee breaks every subject into small independent concepts that can be learned in just a few minutes.
 
-Content is short-form (30 seconds – 5 minutes per video), but sequential and gated, not a swipeable feed — each video is followed by practice before the next one unlocks, and progress is tracked against a structured curriculum underneath it.
+Content is short-form (3 – 15 minutes per video), but sequential and gated, not a swipeable feed — each video is followed by practice before the next one unlocks, and progress is tracked against a structured curriculum underneath it.
 
 ---
 
@@ -116,7 +116,7 @@ Every lesson consists of four parts.
 
 Length:
 
-30 seconds — 5 minutes
+3 - 15 minutes
 
 Each video explains only one concept.
 
@@ -245,11 +245,11 @@ Mathematics for Machine Learning
 
 ---
 
-Learning Paths are collections of concepts.
+Learning Paths are collections of themes/concepts/sub-concepts.
 
 Not separate copies of courses.
 
-Multiple paths can reuse the same concepts.
+Multiple paths can reuse the same themes/concepts/sub-concepts.
 
 ---
 
@@ -528,7 +528,11 @@ Knowledge becomes reusable.
 
 # Platform Architecture
 
-Domain
+Subject
+
+↓
+
+Theme
 
 ↓
 

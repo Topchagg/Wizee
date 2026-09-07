@@ -12,6 +12,22 @@
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.suggestHint {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.suggestError {
   margin-top: 8px;
 }
 
@@ -54,7 +70,7 @@
 .progressFill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  background: var(--color-primary);
   transition: width 0.3s ease;
 }
 
@@ -71,6 +87,20 @@
 
 .themeBlock:last-child {
   border-bottom: none;
+}
+
+/* Holds one row's toggle button (flex: 1) alongside its Suggest button —
+   they have to be siblings, not nested, since a <button> can't contain
+   another <button>. */
+.rowShell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowShell > button:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .themeRow,

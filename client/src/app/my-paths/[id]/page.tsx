@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { canCreate, useAuth } from "@/contexts/AuthContext";
+import { Modal } from "@/components/Modal";
 import { apiFetch } from "@/lib/api";
 import { toggleSetMember } from "@/lib/set-utils";
 import styles from "./page.module.css";
@@ -33,9 +34,11 @@ type SearchHit = {
   conceptTitle: string | null;
 };
 
+type MissingPrerequisite = { id: string; title: string; themeTitle: string };
+
 export default function PathBuilderPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, appUser, appUserLoading } = useAuth();
   const router = useRouter();
 
   const [detail, setDetail] = useState<PathDetail | null>(null);
@@ -49,6 +52,7 @@ export default function PathBuilderPage() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [prereqSuggestion, setPrereqSuggestion] = useState<MissingPrerequisite[] | null>(null);
 
   const loadDetail = () => {
     apiFetch(`/paths/${id}`)
@@ -63,13 +67,20 @@ export default function PathBuilderPage() {
       router.replace("/login");
       return;
     }
+    // Path editing is TUTOR-only (server enforces this too — see RolesGuard
+    // on the path mutation routes). Wait for the role fetch before deciding.
+    if (appUserLoading) return;
+    if (!canCreate(appUser?.role)) {
+      router.replace("/");
+      return;
+    }
     loadDetail();
     apiFetch("/paths/tree")
       .then((res) => (res.ok ? (res.json() as Promise<TreeSubject[]>) : Promise.reject()))
       .then(setTree)
       .catch(() => setError("Couldn't load the concept tree."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, user, authLoading, router]);
+  }, [id, user, authLoading, appUser, appUserLoading, router]);
 
   // Debounced, scoped to whichever Subject is currently open.
   useEffect(() => {
@@ -103,9 +114,42 @@ export default function PathBuilderPage() {
         body: JSON.stringify({ itemType, themeId, conceptId }),
       });
       if (!res.ok) throw new Error();
+      // Suggestion only, never blocking — the server returns the newly added
+      // Concept's full prerequisite chain, minus whatever the path already
+      // covers. Doesn't apply to THEME items (a Theme already covers every
+      // Concept under it, so it has nothing to suggest against).
+      if (itemType === "CONCEPT") {
+        const body: { missingPrerequisites?: MissingPrerequisite[] } = await res.json().catch(() => ({}));
+        setPrereqSuggestion(body.missingPrerequisites && body.missingPrerequisites.length > 0 ? body.missingPrerequisites : null);
+      }
       loadDetail();
     } catch {
       setError("Couldn't add that item.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Adding an item from the suggestion list itself. Its own chain was already
+  // included in the ORIGINAL suggestion (that came from the full transitive
+  // closure — see PathsService.getMissingPrerequisites), so nothing further
+  // can be revealed here; just drop it from the list once added.
+  const addSuggestedPrerequisite = async (conceptId: string) => {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`/paths/${id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemType: "CONCEPT", conceptId }),
+      });
+      if (!res.ok) throw new Error();
+      setPrereqSuggestion((prev) => {
+        const remaining = prev?.filter((p) => p.id !== conceptId) ?? null;
+        return remaining && remaining.length > 0 ? remaining : null;
+      });
+      loadDetail();
+    } catch {
+      setError("Couldn't add that prerequisite.");
     } finally {
       setBusy(false);
     }
@@ -469,6 +513,39 @@ export default function PathBuilderPage() {
       </div>
 
       {error && <p className="text-danger">{error}</p>}
+
+      {prereqSuggestion && (
+        <Modal
+          title="Add its prerequisites too?"
+          onClose={() => setPrereqSuggestion(null)}
+          actions={
+            <button type="button" className="btn btn-secondary" onClick={() => setPrereqSuggestion(null)}>
+              Not now
+            </button>
+          }
+        >
+          <p className={styles.prereqHint}>
+            This Concept depends on the following — not required, but a learner following this path may need them
+            too.
+          </p>
+          <ul className={styles.prereqList}>
+            {prereqSuggestion.map((p) => (
+              <li key={p.id} className={styles.prereqRow}>
+                <span className={styles.prereqTitle}>{p.title}</span>
+                <span className={styles.prereqTheme}>{p.themeTitle}</span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => void addSuggestedPrerequisite(p.id)}
+                  disabled={busy}
+                >
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
     </div>
   );
 }

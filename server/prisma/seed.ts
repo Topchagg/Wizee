@@ -37,6 +37,10 @@ function genSubConcept(order: number, title: string, withAlternative = false): P
     ],
     answer: 'The concept explained in this video',
   };
+  // Every content bundle needs a homework task (the Test step's default) AND
+  // a solved-on-screen one to roll into — a plain duplicate is honest here
+  // since the placeholder quiz above is already topic-agnostic.
+  const solvedOnScreenTask: Prisma.TestCreateWithoutContentInput = { ...task, isSolvedOnScreen: true };
 
   return {
     title,
@@ -50,7 +54,7 @@ function genSubConcept(order: number, title: string, withAlternative = false): P
           description: `A short introduction to ${title.toLowerCase()}.`,
           creatorName: 'Wizee Team',
           isPrimary: true,
-          tasks: { create: task },
+          tasks: { create: [task, solvedOnScreenTask] },
         },
         ...(withAlternative
           ? [
@@ -59,7 +63,7 @@ function genSubConcept(order: number, title: string, withAlternative = false): P
                 previewVideo: SAMPLE_VIDEO_A,
                 creatorName: 'Wizee Team (alt)',
                 isPrimary: false,
-                tasks: { create: task },
+                tasks: { create: [task, solvedOnScreenTask] },
               },
             ]
           : []),

@@ -1,15 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { AddContentDto } from './dto/add-content.dto';
 import { RecordWatchEventDto } from './dto/record-watch-event.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
@@ -48,6 +42,8 @@ export class SubConceptsController {
     return this.subConcepts.getContentDetail(id, contentId, user.id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Post(':id/content')
   addContent(
     @Param('id') id: string,
@@ -66,17 +62,14 @@ export class SubConceptsController {
     return this.subConcepts.submitAttempt(id, user.id, dto);
   }
 
-  // "Roll" on the Test step — pool=solvedOnScreen when stuck on an HW task
-  // (guaranteed to be worked out in the video), pool=homework to go back to
-  // a fresh HW question afterward.
-  @Get(':id/content/:contentId/tasks/random')
-  getRandomTask(
+  // "Get other tasks" on the Test step — every task solved on-screen
+  // somewhere else in this Sub-concept, never this content's own.
+  @Get(':id/content/:contentId/tasks/solved-on-screen')
+  getSolvedOnScreenTasks(
     @Param('id') id: string,
     @Param('contentId') contentId: string,
-    @Query('pool') pool: 'solvedOnScreen' | 'homework',
-    @Query('exclude') exclude?: string,
   ) {
-    return this.subConcepts.getRandomTask(id, contentId, pool, exclude);
+    return this.subConcepts.getSolvedOnScreenTasks(id, contentId);
   }
 
   @Get(':id/content/:contentId/alternative')

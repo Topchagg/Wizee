@@ -4,7 +4,6 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(circle at 50% 0%, var(--color-primary-light), transparent 60%);
 }
 
 .card {

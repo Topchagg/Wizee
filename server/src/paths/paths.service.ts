@@ -4,33 +4,40 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PrerequisitesService } from '../prerequisites/prerequisites.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPathItemDto } from './dto/add-path-item.dto';
 
 @Injectable()
 export class PathsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly prerequisites: PrerequisitesService,
+  ) {}
 
   async listPublic() {
     const paths = await this.prisma.learningPath.findMany({
       where: { isPublic: true },
       include: {
         user: { select: { displayName: true, email: true } },
-        items: { select: { itemType: true } },
+        items: { select: { itemType: true, themeId: true, conceptId: true } },
       },
     });
 
     // Readme 2.2: paths built only from Concepts (precise, not just "a whole
     // Theme") should be rated higher — a simple ratio stands in for the
-    // "smarter algorithm" the readme defers to post-MVP.
-    return paths
-      .map((path) => {
+    // "smarter algorithm" the readme defers to post-MVP. `completeness`
+    // layers the prerequisite graph on top of that: a Concept-based path that
+    // also covers its Concepts' direct prerequisites (as its own CONCEPT
+    // item, or via a THEME item covering that prerequisite's Theme) scores
+    // higher than one with the same conceptRatio but real gaps.
+    const scored = await Promise.all(
+      paths.map(async (path) => {
         const itemCount = path.items.length;
+        const conceptItems = path.items.filter((i) => i.itemType === 'CONCEPT');
         const conceptRatio =
-          itemCount === 0
-            ? 0
-            : path.items.filter((i) => i.itemType === 'CONCEPT').length /
-              itemCount;
+          itemCount === 0 ? 0 : conceptItems.length / itemCount;
+        const completeness = await this.getCompleteness(path.items);
         return {
           id: path.id,
           title: path.title,
@@ -38,9 +45,74 @@ export class PathsService {
           createdBy: path.user.displayName ?? path.user.email,
           itemCount,
           conceptRatio,
+          completeness,
         };
-      })
-      .sort((a, b) => b.conceptRatio - a.conceptRatio);
+      }),
+    );
+
+    return scored.sort(
+      (a, b) =>
+        b.conceptRatio * 0.7 +
+        b.completeness * 0.3 -
+        (a.conceptRatio * 0.7 + a.completeness * 0.3),
+    );
+  }
+
+  // Fraction of a path's Concept items' direct prerequisites that are also
+  // covered by the path. 1 when there's nothing to check (no Concept items,
+  // or none of them have prerequisites) — absence of a gap, not a perfect
+  // score being claimed.
+  private async getCompleteness(
+    items: {
+      itemType: string;
+      themeId: string | null;
+      conceptId: string | null;
+    }[],
+  ): Promise<number> {
+    const conceptIds = items
+      .filter((i) => i.itemType === 'CONCEPT' && i.conceptId)
+      .map((i) => i.conceptId!);
+    if (conceptIds.length === 0) return 1;
+
+    const coveredConceptIds = await this.getCoveredConceptIds(items);
+    const edges = await this.prisma.conceptPrerequisite.findMany({
+      where: { conceptId: { in: conceptIds } },
+      select: { requiresConceptId: true },
+    });
+    if (edges.length === 0) return 1;
+
+    const satisfied = edges.filter((e) =>
+      coveredConceptIds.has(e.requiresConceptId),
+    ).length;
+    return satisfied / edges.length;
+  }
+
+  // A path "covers" a Concept if it was added directly, or if a THEME item
+  // for that Concept's own Theme was added (the Theme item stands in for
+  // every Concept under it — see resolve()'s flattening).
+  private async getCoveredConceptIds(
+    items: {
+      itemType: string;
+      themeId: string | null;
+      conceptId: string | null;
+    }[],
+  ): Promise<Set<string>> {
+    const covered = new Set(
+      items
+        .filter((i) => i.itemType === 'CONCEPT' && i.conceptId)
+        .map((i) => i.conceptId!),
+    );
+    const themeIds = items
+      .filter((i) => i.itemType === 'THEME' && i.themeId)
+      .map((i) => i.themeId!);
+    if (themeIds.length > 0) {
+      const themeConcepts = await this.prisma.concept.findMany({
+        where: { themeId: { in: themeIds } },
+        select: { id: true },
+      });
+      themeConcepts.forEach((c) => covered.add(c.id));
+    }
+    return covered;
   }
 
   async listMine(userId: string) {
@@ -174,7 +246,7 @@ export class PathsService {
     }
 
     const count = await this.prisma.pathItem.count({ where: { pathId } });
-    return this.prisma.pathItem.create({
+    const item = await this.prisma.pathItem.create({
       data: {
         pathId,
         order: count + 1,
@@ -183,6 +255,31 @@ export class PathsService {
         conceptId: dto.itemType === 'CONCEPT' ? dto.conceptId : null,
       },
     });
+
+    // Suggestion only, never blocking (see prerequisites spec) — a Path
+    // creator may have a valid reason to omit a prerequisite, e.g. a
+    // review-only Path for someone who already knows it.
+    const missingPrerequisites =
+      dto.itemType === 'CONCEPT' && dto.conceptId
+        ? await this.getMissingPrerequisites(pathId, dto.conceptId)
+        : [];
+
+    return { ...item, missingPrerequisites };
+  }
+
+  // The newly-added Concept's full prerequisite chain, minus whatever the
+  // path already covers (its own CONCEPT items, or a THEME item for a
+  // prerequisite's Theme).
+  private async getMissingPrerequisites(pathId: string, conceptId: string) {
+    const chain = await this.prerequisites.listTransitive(conceptId);
+    if (chain.length === 0) return [];
+
+    const items = await this.prisma.pathItem.findMany({
+      where: { pathId },
+      select: { itemType: true, themeId: true, conceptId: true },
+    });
+    const coveredConceptIds = await this.getCoveredConceptIds(items);
+    return chain.filter((c) => !coveredConceptIds.has(c.id));
   }
 
   async removeItem(
@@ -320,14 +417,24 @@ export class PathsService {
     });
     const bySubConceptId = new Map(withContent.map((sc) => [sc.id, sc]));
 
-    const subConcepts = subConceptIds.map((id) => {
-      const sc = bySubConceptId.get(id)!;
-      return {
-        id: sc.id,
-        slug: sc.slug,
-        contentId: sc.contents[0]?.id ?? null,
-      };
-    });
+    // A Sub-concept with no content yet is a curriculum-shape placeholder,
+    // not something a learner can actually watch/pass — it must never be a
+    // stop in the played sequence (otherwise the very first slot in a
+    // freshly-curated path can silently make the whole path unplayable,
+    // even once everything after it has real content).
+    const subConcepts = subConceptIds
+      .map((id) => {
+        const sc = bySubConceptId.get(id)!;
+        return {
+          id: sc.id,
+          slug: sc.slug,
+          contentId: sc.contents[0]?.id ?? null,
+        };
+      })
+      .filter(
+        (sc): sc is { id: string; slug: string; contentId: string } =>
+          sc.contentId !== null,
+      );
 
     return { id: path.id, title: path.title, subConcepts };
   }
@@ -398,27 +505,31 @@ export class PathsService {
       id: string;
       slug: string;
       title: string;
-      contentId: string | null;
+      contentId: string;
     };
 
     const flattened = paths.map((path) => {
       const seen = new Set<string>();
       const subConcepts: FlatSubConcept[] = [];
+      // A Sub-concept with no content yet is a curriculum-shape placeholder,
+      // not something a learner can actually watch/pass — skip it entirely
+      // so it never inflates `total` or gets permanently stuck as "next"
+      // (it can never be marked passed, since there's nothing to attempt).
       const pushUnique = (sc: {
         id: string;
         slug: string;
         title: string;
         contents: { id: string }[];
       }) => {
-        if (!seen.has(sc.id)) {
-          seen.add(sc.id);
-          subConcepts.push({
-            id: sc.id,
-            slug: sc.slug,
-            title: sc.title,
-            contentId: sc.contents[0]?.id ?? null,
-          });
-        }
+        const contentId = sc.contents[0]?.id;
+        if (!contentId || seen.has(sc.id)) return;
+        seen.add(sc.id);
+        subConcepts.push({
+          id: sc.id,
+          slug: sc.slug,
+          title: sc.title,
+          contentId,
+        });
       };
       for (const item of path.items) {
         if (item.itemType === 'THEME' && item.theme) {

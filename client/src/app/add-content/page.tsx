@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { canCreate, useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { getVideoDuration, uploadVideo } from "@/lib/upload";
 import styles from "./page.module.css";
@@ -26,7 +26,7 @@ const emptyTask = (): TaskDraft => ({
 const PREVIEW_MAX_SECONDS = 45;
 
 export default function AddContentPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, appUser, appUserLoading } = useAuth();
   const router = useRouter();
 
   const [tree, setTree] = useState<TreeSubject[] | null>(null);
@@ -54,6 +54,14 @@ export default function AddContentPage() {
       router.replace("/login");
       return;
     }
+    // Content creation is TUTOR-only (server enforces this too — see
+    // RolesGuard on POST /sub-concepts/:id/content). Wait for the role fetch
+    // before deciding, so a LEARNER isn't redirected on a stale null.
+    if (appUserLoading) return;
+    if (!canCreate(appUser?.role)) {
+      router.replace("/");
+      return;
+    }
     apiFetch("/sub-concepts/tree")
       .then((res) => (res.ok ? (res.json() as Promise<TreeSubject[]>) : Promise.reject()))
       .then(setTree)
@@ -63,7 +71,7 @@ export default function AddContentPage() {
         setTree([]);
         setError("Couldn't load the concept tree.");
       });
-  }, [user, authLoading, router]);
+  }, [user, authLoading, appUser, appUserLoading, router]);
 
   const themes = useMemo(() => tree?.find((s) => s.id === subjectId)?.themes ?? [], [tree, subjectId]);
   const concepts = useMemo(() => themes.find((t) => t.id === themeId)?.concepts ?? [], [themes, themeId]);

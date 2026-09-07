@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { canCreate, useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import styles from "./page.module.css";
 
 type MyPath = { id: string; title: string; description: string | null; isPublic: boolean; itemCount: number };
 
 export default function MyPathsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, appUser, appUserLoading } = useAuth();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MyPath[] | null>(null);
@@ -37,8 +37,16 @@ export default function MyPathsPage() {
       router.replace("/login");
       return;
     }
+    // Path creation is TUTOR-only (server enforces this too — see RolesGuard
+    // on POST /paths etc). Wait for the role fetch before deciding, so a
+    // LEARNER isn't redirected on a stale null.
+    if (appUserLoading) return;
+    if (!canCreate(appUser?.role)) {
+      router.replace("/");
+      return;
+    }
     load();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, appUser, appUserLoading, router]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;

@@ -17,6 +17,23 @@ enum PathItemType {
   CONCEPT
 }
 
+// RBAC: TUTOR/LEARNER are chosen once, right after first sign-in (see
+// AuthController.setRole — the DTO there only ever accepts these two).
+// TUTOR is a superset of LEARNER — every feature, including path/content
+// creation. LEARNER gets everything except creating paths, content, or
+// subjects. Null means the user hasn't picked yet — the client blocks on
+// that with the "what's your main purpose" prompt before anything else.
+//
+// SUPERADMIN is NOT choosable through the app at all — no UI offers it, and
+// setRole's DTO whitelist rejects it even if sent directly to the API. The
+// only way to grant it is an operator editing the row in the DB. RolesGuard
+// treats it as passing every role check (see roles.guard.ts).
+enum Role {
+  TUTOR
+  LEARNER
+  SUPERADMIN
+}
+
 enum QuestionType {
   MULTIPLE_CHOICE
   FILL_GAP
@@ -32,6 +49,15 @@ enum ReviewStage {
 }
 
 enum SearchEntryType {
+  THEME
+  CONCEPT
+  SUBCONCEPT
+}
+
+// What a Suggestion proposes adding — mirrors AdminService's create levels,
+// minus Subject (nobody suggests a whole new Subject, only children of an
+// existing tree node).
+enum SuggestionType {
   THEME
   CONCEPT
   SUBCONCEPT
@@ -65,6 +91,9 @@ model User {
   email       String   @unique
   displayName String?
   photoUrl    String?
+  // Null until the post-sign-in "what's your main purpose" prompt is
+  // answered — see Role above.
+  role        Role?
   createdAt   DateTime @default(now())
 
   attempts          Attempt[]
@@ -76,6 +105,7 @@ model User {
 
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+  suggestions      Suggestion[]
 }
 
 // Simple direct messaging between any two users (readme 5.1: student contacts
@@ -106,7 +136,8 @@ model Subject {
   slug  String @unique
   order Int
 
-  themes Theme[]
+  themes      Theme[]
+  suggestions Suggestion[]
 
   @@unique([order])
 }
@@ -117,9 +148,10 @@ model Theme {
   title     String
   order     Int
 
-  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  concepts  Concept[]
-  pathItems PathItem[]
+  subject     Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  concepts    Concept[]
+  pathItems   PathItem[]
+  suggestions Suggestion[]
 
   @@unique([subjectId, order])
 }
@@ -133,6 +165,7 @@ model Concept {
   theme       Theme        @relation(fields: [themeId], references: [id], onDelete: Cascade)
   subConcepts SubConcept[]
   pathItems   PathItem[]
+  suggestions Suggestion[]
 
   // Cross-cutting, advisory-only dependency graph (see ConceptPrerequisite) —
   // separate from `order`, which only sequences siblings under the same Theme.
@@ -153,6 +186,31 @@ model ConceptPrerequisite {
   requires Concept @relation("RequiredBy", fields: [requiresConceptId], references: [id], onDelete: Cascade)
 
   @@id([conceptId, requiresConceptId])
+}
+
+// A learner/tutor's proposal to add a child node somewhere in the curated
+// tree — SUPERADMIN-only to see (readme "Tree Structure & Subject Growth":
+// the shape is centrally curated, so a suggestion is a request, not a write).
+// Exactly one of subjectId/themeId/conceptId is set, matching `type` — which
+// parent it's a suggestion for.
+model Suggestion {
+  id            String         @id @default(cuid())
+  type          SuggestionType
+  title         String
+  subjectId     String?
+  themeId       String?
+  conceptId     String?
+  suggestedById String
+  createdAt     DateTime       @default(now())
+
+  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  theme       Theme?   @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  concept     Concept? @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  suggestedBy User     @relation(fields: [suggestedById], references: [id], onDelete: Cascade)
+
+  @@index([subjectId])
+  @@index([themeId])
+  @@index([conceptId])
 }
 
 model SubConcept {
@@ -236,7 +294,8 @@ model Test {
   isSolvedOnScreen Boolean  @default(false)
   createdAt        DateTime @default(now())
 
-  content SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  content  SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  attempts Attempt[]
 
   @@index([contentId, isSolvedOnScreen])
 }
@@ -248,6 +307,11 @@ model Attempt {
   userId       String
   subConceptId String
   contentId    String
+  // Which specific Test this attempt graded — nullable because rows created
+  // before this field existed have no value. Powers "has this user passed
+  // every homework task in this content yet" (see SubConceptsService.getRandomTask),
+  // which a content-level passed/failed flag alone can't answer.
+  taskId       String?
   passed       Boolean
   requestedAlt Boolean  @default(false)
   createdAt    DateTime @default(now())
@@ -255,9 +319,11 @@ model Attempt {
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   subConcept SubConcept        @relation(fields: [subConceptId], references: [id], onDelete: Cascade)
   content    SubConceptContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  task       Test?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([subConceptId, contentId, passed])
   @@index([userId, subConceptId])
+  @@index([userId, contentId, taskId, passed])
 }
 
 model WatchEvent {

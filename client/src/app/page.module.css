@@ -21,10 +21,7 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   text-wrap: balance;
-  background: linear-gradient(120deg, var(--color-text) 35%, var(--color-primary) 75%, var(--color-accent));
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--color-text);
 }
 
 .heroSubtitle {
@@ -81,7 +78,7 @@
   align-items: center;
   gap: 20px;
   border-left: 4px solid var(--color-primary);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)), var(--color-surface) 55%);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
 }
 
 .dailyCard h2 {
@@ -96,7 +93,7 @@
 
 .dailyCardDone {
   border-left-color: var(--color-success);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-success) 10%, var(--color-surface)), var(--color-surface) 55%);
+  background: color-mix(in srgb, var(--color-success) 6%, var(--color-surface));
 }
 
 .dailyIcon {
@@ -150,18 +147,18 @@
 
 .tileStart {
   border-left-color: var(--color-primary);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)), var(--color-surface) 45%);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
 }
 
 .tileIconStart {
-  background: var(--gradient-brand);
+  background: var(--color-primary);
   color: #fff;
   box-shadow: 0 3px 10px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .tileChoose {
   border-left-color: var(--color-accent);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 8%, var(--color-surface)), var(--color-surface) 45%);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
 }
 
 .tileIconChoose {
@@ -172,7 +169,7 @@
 
 .tileBuild {
   border-left-color: var(--color-success);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-success) 8%, var(--color-surface)), var(--color-surface) 45%);
+  background: color-mix(in srgb, var(--color-success) 6%, var(--color-surface));
 }
 
 .tileIconBuild {

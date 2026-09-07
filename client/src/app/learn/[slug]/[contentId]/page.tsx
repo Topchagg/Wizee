@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import styles from "./page.module.css";
 
-type TestInfo = { id: string; type: string; prompt: string; choices: unknown };
+type TestInfo = {
+  id: string;
+  type: string;
+  prompt: string;
+  choices: unknown;
+  contentId?: string;
+  // Only present on this content's own homework tasks (toContentDto) — never
+  // on solved-on-screen tasks rolled in from a sibling content's own
+  // endpoint, and null/0 unless the viewer is this content's creator.
+  attemptedCount?: number;
+  passRate?: number | null;
+};
 type ContentInfo = {
   id: string;
   video: string;
@@ -16,10 +27,14 @@ type ContentInfo = {
   creatorName: string | null;
   creatorId: string | null;
   creatorPhotoUrl: string | null;
-  test: TestInfo | null;
+  tests: TestInfo[];
   solvedOnScreenCount: number;
+  attemptedCount: number;
+  passRate: number | null;
+  skipRate: number | null;
 };
 type SiblingSubConcept = { id: string; slug: string; title: string; contentId: string | null };
+type BuildsOnEntry = { id: string; title: string; themeTitle: string; slug: string; contentId: string };
 type SubConceptDetail = {
   id: string;
   slug: string;
@@ -29,9 +44,155 @@ type SubConceptDetail = {
   contentCount: number;
   masteredCount: number;
   siblings: SiblingSubConcept[];
+  buildsOn: BuildsOnEntry[];
 };
 
 type Step = "preview" | "video" | "test";
+type TaskResult = "passed" | "failed";
+
+// Shared shell for every modal on this page (gate + no-alternative) — owns
+// the overlay/card markup and Escape-to-close so neither caller repeats it.
+function Modal({
+  title,
+  onClose,
+  actions,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="card modal-card" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">{title}</h2>
+        <p className="modal-body">{children}</p>
+        <div className="modal-actions">{actions}</div>
+      </div>
+    </div>
+  );
+}
+
+// One homework task's own card — its own choice selection, its own submit,
+// its own pass/fail feedback. The Test step renders one of these per task
+// this content has, all visible at once (see the golden rule: moving from
+// Video into Test always shows the FULL homework set, never just one).
+function HwTaskCard({
+  task,
+  answer,
+  result,
+  submitting,
+  onSelect,
+  onSubmit,
+}: {
+  task: TestInfo;
+  answer: string | undefined;
+  result: TaskResult | undefined;
+  submitting: boolean;
+  onSelect: (choice: string) => void;
+  onSubmit: () => void;
+}) {
+  const choices = Array.isArray(task.choices) ? (task.choices as string[]) : [];
+  return (
+    <div className={`card ${styles.practice}`}>
+      <p className={styles.prompt}>{task.prompt}</p>
+      {!!task.attemptedCount && (
+        // Same difficulty signal as the video-level pass rate, one level
+        // down — creator-only (see toContentDto), a confusing or
+        // too-easy/too-hard QUESTION is a separate signal from a weak video.
+        <p className={styles.contentStat}>
+          <strong>{Math.round((task.passRate ?? 0) * 100)}%</strong> pass rate ·{" "}
+          {task.attemptedCount} {task.attemptedCount === 1 ? "learner" : "learners"}
+        </p>
+      )}
+      <div className={styles.choices}>
+        {choices.map((choice) => (
+          <button
+            key={choice}
+            type="button"
+            className={answer === choice ? styles.choiceSelected : styles.choice}
+            onClick={() => onSelect(choice)}
+            disabled={submitting}
+          >
+            {choice}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={answer === undefined || submitting}>
+        {submitting ? "Submitting…" : "Submit"}
+      </button>
+      {result && (
+        <p className={result === "passed" ? styles.pass : styles.fail}>
+          {result === "passed" ? "✓ Correct!" : "✗ Not quite."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// A solved-on-screen task's own card — always from a SIBLING explanation
+// (the server never returns this content's own), so it always links to that
+// other content's page rather than this one's video.
+function SolvedTaskCard({
+  task,
+  slug,
+  answer,
+  result,
+  submitting,
+  onSelect,
+  onSubmit,
+}: {
+  task: TestInfo;
+  slug: string;
+  answer: string | undefined;
+  result: TaskResult | undefined;
+  submitting: boolean;
+  onSelect: (choice: string) => void;
+  onSubmit: () => void;
+}) {
+  const choices = Array.isArray(task.choices) ? (task.choices as string[]) : [];
+  return (
+    <div className={`card ${styles.practice}`}>
+      <div className={styles.practiceHeader}>
+        <span className="badge">Worked out in another explanation</span>
+        {task.contentId && (
+          <Link href={`/learn/${slug}/${task.contentId}`} className="btn btn-ghost btn-sm">
+            See it solved →
+          </Link>
+        )}
+      </div>
+      <p className={styles.prompt}>{task.prompt}</p>
+      <div className={styles.choices}>
+        {choices.map((choice) => (
+          <button
+            key={choice}
+            type="button"
+            className={answer === choice ? styles.choiceSelected : styles.choice}
+            onClick={() => onSelect(choice)}
+            disabled={submitting}
+          >
+            {choice}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={answer === undefined || submitting}>
+        {submitting ? "Submitting…" : "Submit"}
+      </button>
+      {result && (
+        <p className={result === "passed" ? styles.pass : styles.fail}>
+          {result === "passed" ? "✓ Correct!" : "✗ Not quite."}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function LearnPage() {
   const { slug, contentId } = useParams<{ slug: string; contentId: string }>();
@@ -41,26 +202,31 @@ export default function LearnPage() {
   const [detail, setDetail] = useState<SubConceptDetail | null>(null);
   const [step, setStep] = useState<Step>("video");
   const [maxStepIndex, setMaxStepIndex] = useState(0);
-  const [task, setTask] = useState<TestInfo | null>(null);
-  const [taskIsSolvedOnScreen, setTaskIsSolvedOnScreen] = useState(false);
-  const [lastHwTaskId, setLastHwTaskId] = useState<string | null>(null);
-  const [rolling, setRolling] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<"passed" | "failed" | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  // Every homework task is shown at once — state is keyed by task id rather
+  // than holding just "the current" answer/result.
+  const [hwAnswers, setHwAnswers] = useState<Record<string, string>>({});
+  const [hwResults, setHwResults] = useState<Record<string, TaskResult>>({});
+  const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
+
+  // Every solved-on-screen task in the Sub-concept (always from SIBLING
+  // explanations — never this content's own), shown instead of the homework
+  // list once fetched (golden rule: interacting with "Get other tasks" while
+  // on the Test step only ever surfaces solved-on-screen tasks). Each task
+  // carries its own contentId since they can come from different siblings.
+  const [solvedTasks, setSolvedTasks] = useState<TestInfo[]>([]);
+  const [solvedAnswers, setSolvedAnswers] = useState<Record<string, string>>({});
+  const [solvedResults, setSolvedResults] = useState<Record<string, TaskResult>>({});
+  const [submittingSolvedTaskId, setSubmittingSolvedTaskId] = useState<string | null>(null);
+  const [loadingSolved, setLoadingSolved] = useState(false);
+
   const [altLoading, setAltLoading] = useState(false);
   const [nextLoading, setNextLoading] = useState(false);
   const [previewDuration, setPreviewDuration] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showGateModal, setShowGateModal] = useState(false);
+  const [showNoAltModal, setShowNoAltModal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (!showGateModal) return;
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setShowGateModal(false);
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showGateModal]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,11 +253,11 @@ export default function LearnPage() {
       .then((data) => {
         if (cancelled) return;
         setDetail(data);
-        setTask(data.content?.test ?? null);
-        setTaskIsSolvedOnScreen(false);
-        setLastHwTaskId(data.content?.test?.id ?? null);
-        setSelected(null);
-        setLastResult(null);
+        setHwAnswers({});
+        setHwResults({});
+        setSolvedTasks([]);
+        setSolvedAnswers({});
+        setSolvedResults({});
         const startStep: Step = data.content?.previewVideo ? "preview" : "video";
         setStep(startStep);
         setMaxStepIndex(0);
@@ -111,10 +277,11 @@ export default function LearnPage() {
       list.push({ key: "preview", label: "Preview", caption: "A quick real-world hook" });
     }
     list.push({ key: "video", label: "Video", caption: "The full explanation" });
+    const hwCount = detail?.content?.tests.length ?? 0;
     list.push({
       key: "test",
       label: "Test",
-      caption: detail?.content?.test ? "1 quick question after the video" : "No quiz for this one",
+      caption: hwCount > 0 ? `${hwCount} quick question${hwCount === 1 ? "" : "s"} after the video` : "No quiz for this one",
     });
     return list;
   }, [detail]);
@@ -129,14 +296,19 @@ export default function LearnPage() {
   // Re-entering "test" after already having been there (maxStepIndex already
   // covers it, since test is always the last step) means the learner went
   // back to rewatch the video — e.g. because they got stuck on a
-  // solved-on-screen task. Coming back always hands them a FRESH homework
-  // task, excluding whichever one was last shown, so it's a real second try
-  // and never a repeat.
-  const goToStep = async (key: Step) => {
+  // solved-on-screen task. Coming back always shows the SAME full homework
+  // set again, but with a clean slate (no stale answers/results/roll from
+  // the previous attempt) — a real second try, per the golden rule that
+  // moving Video -> Test always lands on homework.
+  const goToStep = (key: Step) => {
     const idx = steps.findIndex((s) => s.key === key);
     if (idx === -1) return;
     if (key === "test" && step !== "test" && maxStepIndex >= idx) {
-      await handleRollTask("homework");
+      setHwAnswers({});
+      setHwResults({});
+      setSolvedTasks([]);
+      setSolvedAnswers({});
+      setSolvedResults({});
     }
     setStep(key);
     setMaxStepIndex((m) => Math.max(m, idx));
@@ -153,58 +325,71 @@ export default function LearnPage() {
         completed: true,
       }),
     });
-    void goToStep("test");
+    goToStep("test");
   };
 
-  const handleSubmit = async () => {
-    if (!detail?.content || !task || selected === null) return;
-    setSubmitting(true);
+  const handleSubmitHw = async (task: TestInfo) => {
+    const answer = hwAnswers[task.id];
+    if (!detail?.content || answer === undefined) return;
+    setSubmittingTaskId(task.id);
     setError(null);
     try {
       const res = await apiFetch(`/sub-concepts/${slug}/attempts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentId: detail.content.id, taskId: task.id, answer: selected }),
+        body: JSON.stringify({ contentId: detail.content.id, taskId: task.id, answer }),
       });
       if (!res.ok) throw new Error();
       const result: { passed: boolean } = await res.json();
-      setLastResult(result.passed ? "passed" : "failed");
+      setHwResults((prev) => ({ ...prev, [task.id]: result.passed ? "passed" : "failed" }));
     } catch {
       setError("Couldn't submit your answer — try again.");
     } finally {
-      setSubmitting(false);
+      setSubmittingTaskId(null);
     }
   };
 
-  // Bidirectional roll, available any time on the Test step — not just when
-  // stuck, since a learner may just want more reps after passing too.
-  // pool="solvedOnScreen": fetch a task actually worked out in the video (the
-  // guaranteed-answer fallback). pool="homework": go back to a fresh HW
-  // question, excluding whichever HW task was last shown so it's a real
-  // second attempt, not a repeat.
-  const handleRollTask = async (pool: "solvedOnScreen" | "homework") => {
-    if (!detail?.content) return;
-    setRolling(true);
+  const handleSubmitSolved = async (task: TestInfo) => {
+    const answer = solvedAnswers[task.id];
+    if (!detail?.content || answer === undefined || !task.contentId) return;
+    setSubmittingSolvedTaskId(task.id);
     setError(null);
     try {
-      const query =
-        pool === "homework" && lastHwTaskId
-          ? `pool=homework&exclude=${lastHwTaskId}`
-          : `pool=${pool}`;
-      const res = await apiFetch(`/sub-concepts/${slug}/content/${detail.content.id}/tasks/random?${query}`);
+      const res = await apiFetch(`/sub-concepts/${slug}/attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentId: task.contentId, taskId: task.id, answer }),
+      });
       if (!res.ok) throw new Error();
-      const rolled: TestInfo = await res.json();
-      setTask(rolled);
-      setTaskIsSolvedOnScreen(pool === "solvedOnScreen");
-      if (pool === "homework") setLastHwTaskId(rolled.id);
-      setSelected(null);
-      setLastResult(null);
+      const result: { passed: boolean } = await res.json();
+      setSolvedResults((prev) => ({ ...prev, [task.id]: result.passed ? "passed" : "failed" }));
     } catch {
-      setError(
-        pool === "solvedOnScreen" ? "No solved example available yet." : "Couldn't get another question — try again.",
-      );
+      setError("Couldn't submit your answer — try again.");
     } finally {
-      setRolling(false);
+      setSubmittingSolvedTaskId(null);
+    }
+  };
+
+  // Golden rule: interacting with "Get other tasks" while already on the
+  // Test step only ever surfaces solved-on-screen tasks — every one of them,
+  // from every sibling explanation of this Sub-concept (a content-sub-concept
+  // realistically only ever has a handful, so fetching the whole set is
+  // cheap). Never this content's own — see getSolvedOnScreenTasks server-side.
+  const handleFetchSolvedTasks = async () => {
+    if (!detail?.content) return;
+    setLoadingSolved(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/sub-concepts/${slug}/content/${detail.content.id}/tasks/solved-on-screen`);
+      if (!res.ok) throw new Error();
+      const tasks: TestInfo[] = await res.json();
+      setSolvedTasks(tasks);
+      setSolvedAnswers({});
+      setSolvedResults({});
+    } catch {
+      setError("No solved examples available yet.");
+    } finally {
+      setLoadingSolved(false);
     }
   };
 
@@ -223,7 +408,7 @@ export default function LearnPage() {
       const alt: ContentInfo = await res.json();
       router.push(`/learn/${slug}/${alt.id}`);
     } catch {
-      setError("No alternative explanation available yet.");
+      setShowNoAltModal(true);
     } finally {
       setAltLoading(false);
     }
@@ -259,8 +444,8 @@ export default function LearnPage() {
   }
 
   const content = detail.content;
-  const choices = Array.isArray(task?.choices) ? (task.choices as string[]) : [];
   const otherExplanations = detail.contentCount - 1;
+  const allHwAttempted = content.tests.length > 0 && content.tests.every((t) => hwResults[t.id] !== undefined);
 
   return (
     <div className={styles.learnShell}>
@@ -272,6 +457,21 @@ export default function LearnPage() {
           <span className={styles.crumbSep}>/</span>
           <span>{detail.breadcrumb.concept}</span>
         </div>
+        {detail.buildsOn.length > 0 && (
+          // Light, non-blocking note — never a hard gate (readme: the
+          // platform surfaces information, it doesn't withhold access).
+          <p className={styles.buildsOn}>
+            Builds on:{" "}
+            {detail.buildsOn.map((b, i) => (
+              <span key={b.id}>
+                {i > 0 && ", "}
+                <Link href={`/learn/${b.slug}/${b.contentId}`} className={styles.buildsOnLink}>
+                  {b.title}
+                </Link>
+              </span>
+            ))}
+          </p>
+        )}
         <h1 className={styles.title}>{detail.title}</h1>
         {content.description && <p className={styles.hook}>{content.description}</p>}
 
@@ -287,7 +487,7 @@ export default function LearnPage() {
               />
             </div>
             <div className={styles.stepFooter}>
-              <button type="button" className="btn btn-primary" onClick={() => void goToStep("video")}>
+              <button type="button" className="btn btn-primary" onClick={() => goToStep("video")}>
                 Continue to video →
               </button>
             </div>
@@ -308,18 +508,25 @@ export default function LearnPage() {
               />
             </div>
             <div className={styles.stepFooterBetween}>
-              {/* Always clickable — if they haven't submitted the practice question
-                  yet, handleAnotherExplanation redirects them to it instead of
-                  calling the (still server-gated) alternative endpoint. */}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => void handleAnotherExplanation()}
-                disabled={altLoading}
-              >
-                {altLoading ? "Loading…" : "Another Explanation"}
-              </button>
-              <button type="button" className="btn btn-primary" onClick={() => void goToStep("test")}>
+              <div className={styles.stepFooterLeft}>
+                {content.previewVideo && (
+                  <button type="button" className="btn btn-ghost" onClick={() => goToStep("preview")}>
+                    ← Back
+                  </button>
+                )}
+                {/* Always clickable — if they haven't submitted the practice question
+                    yet, handleAnotherExplanation redirects them to it instead of
+                    calling the (still server-gated) alternative endpoint. */}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void handleAnotherExplanation()}
+                  disabled={altLoading}
+                >
+                  {altLoading ? "Loading…" : "Another Explanation"}
+                </button>
+              </div>
+              <button type="button" className="btn btn-primary" onClick={() => goToStep("test")}>
                 Continue to practice →
               </button>
             </div>
@@ -328,83 +535,84 @@ export default function LearnPage() {
 
         {step === "test" && (
           <>
-            {task && (
-              <div className={`card ${styles.practice}`}>
-                <div className={styles.practiceHeader}>
-                  <h2 className={styles.practiceTitle}>Practice</h2>
-                  {taskIsSolvedOnScreen ? (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => void handleRollTask("homework")}
-                      disabled={rolling || submitting}
-                    >
-                      {rolling ? "Loading…" : "🎲 Try a new task"}
-                    </button>
-                  ) : (
-                    content.solvedOnScreenCount > 0 && (
+            {solvedTasks.length > 0 ? (
+              <div className={styles.hwList}>
+                <h2 className={styles.practiceTitle}>
+                  Solved on-screen — {solvedTasks.length} task{solvedTasks.length === 1 ? "" : "s"}
+                </h2>
+                {solvedTasks.map((task) => (
+                  <SolvedTaskCard
+                    key={task.id}
+                    task={task}
+                    slug={slug}
+                    answer={solvedAnswers[task.id]}
+                    result={solvedResults[task.id]}
+                    submitting={submittingSolvedTaskId === task.id}
+                    onSelect={(choice) => setSolvedAnswers((prev) => ({ ...prev, [task.id]: choice }))}
+                    onSubmit={() => void handleSubmitSolved(task)}
+                  />
+                ))}
+              </div>
+            ) : (
+              content.tests.length > 0 && (
+                <div className={styles.hwList}>
+                  <div className={styles.practiceHeader}>
+                    <h2 className={styles.practiceTitle}>Practice — {content.tests.length} task{content.tests.length === 1 ? "" : "s"}</h2>
+                    {/* Golden rule: "Get other tasks" only ever surfaces
+                        solved-on-screen tasks, and only once every homework
+                        task shown here has been attempted at least once. */}
+                    {content.solvedOnScreenCount > 0 && (
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        onClick={() => void handleRollTask("solvedOnScreen")}
-                        disabled={rolling || submitting}
+                        onClick={() => void handleFetchSolvedTasks()}
+                        disabled={loadingSolved || !allHwAttempted}
+                        title={allHwAttempted ? undefined : "Submit an answer to every task above to get new tasks"}
                       >
-                        {rolling ? "Loading…" : "🎲 See it solved"}
+                        {loadingSolved ? "Loading…" : "🎲 Get other tasks"}
                       </button>
-                    )
-                  )}
-                </div>
-                {taskIsSolvedOnScreen && <span className="badge">Worked out in the video</span>}
-                <p className={styles.prompt}>{task.prompt}</p>
-                <div className={styles.choices}>
-                  {choices.map((choice) => (
-                    <button
-                      key={choice}
-                      type="button"
-                      className={selected === choice ? styles.choiceSelected : styles.choice}
-                      onClick={() => setSelected(choice)}
-                      disabled={submitting}
-                    >
-                      {choice}
-                    </button>
+                    )}
+                  </div>
+                  {content.tests.map((task) => (
+                    <HwTaskCard
+                      key={task.id}
+                      task={task}
+                      answer={hwAnswers[task.id]}
+                      result={hwResults[task.id]}
+                      submitting={submittingTaskId === task.id}
+                      onSelect={(choice) => setHwAnswers((prev) => ({ ...prev, [task.id]: choice }))}
+                      onSubmit={() => void handleSubmitHw(task)}
+                    />
                   ))}
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => void handleSubmit()}
-                  disabled={selected === null || submitting}
-                >
-                  {submitting ? "Submitting…" : "Submit"}
-                </button>
-                {lastResult && (
-                  <p className={lastResult === "passed" ? styles.pass : styles.fail}>
-                    {lastResult === "passed" ? "✓ Correct!" : "✗ Not quite."}
-                  </p>
-                )}
-              </div>
+              )
             )}
 
             <div className={styles.actions}>
-              {/* Always clickable — if they haven't submitted the practice question
-                  yet, handleAnotherExplanation redirects them to it instead of
-                  calling the (still server-gated) alternative endpoint. */}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => void handleAnotherExplanation()}
-                disabled={altLoading}
-              >
-                {altLoading ? "Loading…" : "Another Explanation"}
+              <button type="button" className="btn btn-ghost" onClick={() => goToStep("video")}>
+                ← Back
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void handleNext()}
-                disabled={nextLoading}
-              >
-                {nextLoading ? "Loading…" : "Next →"}
-              </button>
+              <div className={styles.actionsRight}>
+                {/* Always clickable — if they haven't submitted the practice question
+                    yet, handleAnotherExplanation redirects them to it instead of
+                    calling the (still server-gated) alternative endpoint. */}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void handleAnotherExplanation()}
+                  disabled={altLoading}
+                >
+                  {altLoading ? "Loading…" : "Another Explanation"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void handleNext()}
+                  disabled={nextLoading}
+                >
+                  {nextLoading ? "Loading…" : "Next →"}
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -465,6 +673,25 @@ export default function LearnPage() {
                 Contact teacher
               </Link>
             )}
+            {content.attemptedCount > 0 && (
+              // Difficulty signal, creator-only — the server only ever
+              // computes these when the viewer IS this content's creator
+              // (see SubConceptsService.toContentDto); anyone else always
+              // gets attemptedCount 0, which keeps this block hidden without
+              // the client needing its own role check. Based on distinct
+              // learners, not raw attempt counts, so retries don't skew it.
+              <div className={styles.contentStats}>
+                <span className={styles.contentStat}>
+                  <strong>{Math.round((content.passRate ?? 0) * 100)}%</strong> pass rate
+                </span>
+                <span className={styles.contentStat}>
+                  <strong>{Math.round((content.skipRate ?? 0) * 100)}%</strong> ask for another explanation
+                </span>
+                <span className={styles.contentStatMeta}>
+                  based on {content.attemptedCount} {content.attemptedCount === 1 ? "learner" : "learners"}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </aside>
@@ -482,7 +709,7 @@ export default function LearnPage() {
                     <button
                       type="button"
                       className={`${styles.stepDot} ${styles[`stepDot_${state}`]}`}
-                      onClick={() => clickable && void goToStep(s.key)}
+                      onClick={() => clickable && goToStep(s.key)}
                       disabled={!clickable}
                     >
                       {state === "done" ? "✓" : idx + 1}
@@ -503,14 +730,11 @@ export default function LearnPage() {
       </aside>
 
       {showGateModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowGateModal(false)}>
-          <div className={`card ${styles.modalCard}`} onClick={(e) => e.stopPropagation()}>
-            <h2 className={styles.modalTitle}>Solve the practice question first</h2>
-            <p className={styles.modalBody}>
-              Your first &ldquo;Another Explanation&rdquo; was free — after that, submit the practice question
-              before switching explanations again.
-            </p>
-            <div className={styles.modalActions}>
+        <Modal
+          title="Solve the practice question first"
+          onClose={() => setShowGateModal(false)}
+          actions={
+            <>
               <button type="button" className="btn btn-secondary" onClick={() => setShowGateModal(false)}>
                 Cancel
               </button>
@@ -519,14 +743,31 @@ export default function LearnPage() {
                 className="btn btn-primary"
                 onClick={() => {
                   setShowGateModal(false);
-                  void goToStep("test");
+                  goToStep("test");
                 }}
               >
                 Go to practice →
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          Your first &ldquo;Another Explanation&rdquo; was free — after that, submit the practice question before
+          switching explanations again.
+        </Modal>
+      )}
+
+      {showNoAltModal && (
+        <Modal
+          title="No alternative explanation yet"
+          onClose={() => setShowNoAltModal(false)}
+          actions={
+            <button type="button" className="btn btn-primary" onClick={() => setShowNoAltModal(false)}>
+              Got it
+            </button>
+          }
+        >
+          Nobody else has submitted an explanation for this Sub-concept yet — check back later.
+        </Modal>
       )}
     </div>
   );

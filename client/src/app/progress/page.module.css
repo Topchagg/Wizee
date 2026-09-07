@@ -70,7 +70,7 @@
 .progressFill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--gradient-brand);
+  background: var(--color-primary);
   transition: width 0.3s ease;
 }
 

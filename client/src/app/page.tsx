@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { canCreate, useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import styles from "./page.module.css";
 
-type Me = { id: string; email: string; displayName: string | null };
 type DailyConcept = { title: string; slug: string; contentId: string };
 type DailyStatus = { passedToday: boolean; lastPassed: DailyConcept | null; next: DailyConcept | null };
 
@@ -27,9 +26,8 @@ const FEATURES = [
 ];
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  const { user, loading, appUser } = useAuth();
   const router = useRouter();
-  const [me, setMe] = useState<Me | null>(null);
   const [daily, setDaily] = useState<DailyStatus | null>(null);
   const [startingDefault, setStartingDefault] = useState(false);
 
@@ -52,16 +50,8 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // `me`/`daily` are only ever rendered in the authenticated branch below,
-    // so there's nothing to reset when there's no user — just skip the fetch.
-    if (!user) return;
-    apiFetch("/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setMe)
-      .catch(() => setMe(null));
-  }, [user]);
-
-  useEffect(() => {
+    // `daily` is only ever rendered in the authenticated branch below, so
+    // there's nothing to reset when there's no user — just skip the fetch.
     if (!user) return;
     apiFetch("/paths/daily")
       .then((res) => (res.ok ? (res.json() as Promise<DailyStatus>) : null))
@@ -104,7 +94,7 @@ export default function Home() {
     <div className="page-shell">
       <div>
         <p className="text-secondary">
-          {me ? "Signed in" : "Syncing…"} — {user.displayName ?? user.email}
+          {appUser ? "Signed in" : "Syncing…"} — {user.displayName ?? user.email}
         </p>
         <h1 className={styles.greeting}>What do you want to learn today?</h1>
       </div>
@@ -167,13 +157,15 @@ export default function Home() {
             <p className="text-secondary">Follow a path built by other learners toward a specific goal.</p>
           </span>
         </Link>
-        <Link href="/my-paths" className={`card ${styles.linkCard} ${styles.tileBuild}`}>
-          <span className={`${styles.tileIcon} ${styles.tileIconBuild}`}>🛠️</span>
-          <span className={styles.tileText}>
-            <h3>Build your own Path</h3>
-            <p className="text-secondary">Assemble Themes and Concepts into a path of your own.</p>
-          </span>
-        </Link>
+        {canCreate(appUser?.role) && (
+          <Link href="/my-paths" className={`card ${styles.linkCard} ${styles.tileBuild}`}>
+            <span className={`${styles.tileIcon} ${styles.tileIconBuild}`}>🛠️</span>
+            <span className={styles.tileText}>
+              <h3>Build your own Path</h3>
+              <p className="text-secondary">Assemble Themes and Concepts into a path of your own.</p>
+            </span>
+          </Link>
+        )}
       </div>
     </div>
   );

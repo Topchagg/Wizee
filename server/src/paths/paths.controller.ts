@@ -13,6 +13,8 @@ import {
 import type { User } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { AddPathItemDto } from './dto/add-path-item.dto';
 import { CreatePathDto } from './dto/create-path.dto';
 import { ReorderPathItemsDto } from './dto/reorder-path-items.dto';
@@ -59,6 +61,8 @@ export class PathsController {
     return this.paths.getDailyStatus(user.id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreatePathDto) {
     return this.paths.createDraft(user.id, dto.title, dto.description);
@@ -74,6 +78,8 @@ export class PathsController {
     return this.paths.resolve(id, user.id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Post(':id/items')
   addItem(
     @Param('id') id: string,
@@ -83,6 +89,8 @@ export class PathsController {
     return this.paths.addItem(id, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Delete(':id/items/:itemId')
   removeItem(
     @Param('id') id: string,
@@ -92,6 +100,8 @@ export class PathsController {
     return this.paths.removeItem(id, user.id, itemId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Patch(':id/items/reorder')
   reorder(
     @Param('id') id: string,
@@ -101,11 +111,15 @@ export class PathsController {
     return this.paths.reorderItems(id, user.id, dto.itemIds);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Post(':id/publish')
   publish(@Param('id') id: string, @CurrentUser() user: User) {
     return this.paths.publish(id, user.id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('TUTOR')
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     return this.paths.deletePath(id, user.id);

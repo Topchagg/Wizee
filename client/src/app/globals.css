@@ -27,8 +27,11 @@
 
   --shadow-sm: 0 1px 2px rgba(20, 20, 30, 0.05), 0 1px 1px rgba(20, 20, 30, 0.04);
   --shadow-md: 0 8px 24px rgba(20, 20, 30, 0.08), 0 2px 6px rgba(20, 20, 30, 0.04);
+  /* Glossy top-edge highlight on cards — reads fine in light mode but turns
+     into a stark white outline against a near-black surface, so it's
+     swapped to nothing in dark mode instead of carried over unscaled. */
+  --card-highlight: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
 
-  --gradient-brand: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   --grain-opacity: 0.035;
 
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -42,9 +45,14 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --color-bg: #0f0f13;
-    --color-surface: #17171d;
-    --color-surface-alt: #1e1e26;
-    --color-border: #2a2a33;
+    /* Lighter, clearly-gray surfaces (rather than near-black-on-black) so
+       cards read as floating panels via fill + shadow, not via a border
+       line doing all the work. */
+    --color-surface: #1c1c24;
+    --color-surface-alt: #26262f;
+    /* Close to --color-surface on purpose — just enough definition to hint
+       an edge, with elevation coming from --shadow-md instead of contrast. */
+    --color-border: #2f2f39;
     --color-text: #f2f2f5;
     --color-text-secondary: #a3a3ae;
     --color-text-faint: #6e6e7a;
@@ -63,7 +71,10 @@
     --color-danger-light: #331714;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+    /* `none` isn't valid as one layer in a comma-separated box-shadow list —
+       an invisible shadow layer stands in for "no highlight" instead. */
+    --card-highlight: inset 0 1px 0 transparent;
 
     --grain-opacity: 0.05;
 
@@ -101,24 +112,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Soft, fixed color atmosphere behind every page — flat single-color
-   backgrounds are a big part of what reads as "plastic"; two large, faint,
-   blurred brand-colored blobs give the whole app some depth and warmth
-   without ever competing with content. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  background:
-    radial-gradient(640px circle at 12% -8%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 60%),
-    radial-gradient(520px circle at 108% 18%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 60%);
-}
-
-/* Fine film-grain overlay so gradients/surfaces feel like a textured
-   material instead of smooth vector plastic — the classic antidote to a
-   flat, synthetic-looking UI. */
+/* Fine film-grain overlay so surfaces feel like a textured material instead
+   of smooth vector plastic — the classic antidote to a flat, synthetic-
+   looking UI. */
 body::after {
   content: "";
   position: fixed;
@@ -189,13 +185,13 @@ h3 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 55%, var(--color-accent)));
+  background: var(--color-primary);
   color: var(--color-primary-contrast);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--color-primary-hover), color-mix(in srgb, var(--color-primary-hover) 55%, var(--color-accent)));
+  background: var(--color-primary-hover);
   box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 42%, transparent);
   transform: translateY(-1px);
 }
@@ -278,7 +274,7 @@ textarea.input {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  box-shadow: var(--shadow-md), var(--card-highlight);
 }
 
 .badge {
@@ -309,6 +305,79 @@ textarea.input {
 
 .text-danger {
   color: var(--color-danger);
+}
+
+/* Shared modal shell — any page showing a blocking dialog (a gate, a
+   confirmation, an onboarding prompt) uses these instead of rolling its own
+   overlay/card/animation. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, black 55%, transparent);
+  backdrop-filter: blur(2px);
+  animation: modal-fade-in 0.15s ease;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-md);
+  animation: modal-in 0.18s ease;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modal-body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* For action buttons too long/numerous to sit side by side (e.g. the role
+   picker's two full-sentence choices) — stacked instead of a row. */
+.modal-actions-stack {
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .skeleton {

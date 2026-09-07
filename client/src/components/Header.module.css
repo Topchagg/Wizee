@@ -36,7 +36,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
-  background: var(--gradient-brand);
+  background: var(--color-primary);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
   color: var(--color-primary-contrast);
   font-size: 14px;
@@ -80,6 +80,10 @@
   flex-shrink: 0;
 }
 
+.menuWrapper {
+  position: relative;
+}
+
 .avatar {
   display: inline-flex;
   align-items: center;
@@ -87,11 +91,72 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary-light), color-mix(in srgb, var(--color-accent) 18%, var(--color-primary-light)));
+  background: var(--color-primary-light);
   border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
   color: var(--color-primary);
+  font-family: inherit;
   font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.avatar:hover {
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  animation: menu-in 0.12s ease;
+  z-index: 60;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menuLink {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.menuLink:hover {
+  background: var(--color-surface-alt);
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--color-border);
 }
 
 @media (max-width: 640px) {
