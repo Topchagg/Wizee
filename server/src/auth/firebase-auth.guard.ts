@@ -46,22 +46,35 @@ export class FirebaseAuthGuard implements CanActivate {
     }
 
     // Self-healing: first authenticated request for a Firebase user provisions
-    // their app-level User row, so there's no separate "register" step to forget.
-    (request as Request & { user: unknown }).user =
-      await this.prisma.user.upsert({
-        where: { firebaseUid: decoded.uid },
-        update: {
-          email: decoded.email,
-          displayName: (decoded.name as string | undefined) ?? null,
-          photoUrl: decoded.picture ?? null,
-        },
-        create: {
-          firebaseUid: decoded.uid,
-          email: decoded.email,
-          displayName: decoded.name as string | undefined,
-          photoUrl: decoded.picture,
-        },
+    // their app-level User row, so there's no separate "register" step to
+    // forget. Read first rather than unconditionally upsert — this guard
+    // runs on every authenticated request across the whole API, so writing
+    // on every one of them (even when nothing changed since last time, the
+    // overwhelmingly common case) turns the hottest path in the app into a
+    // row-contention hazard for no reason.
+    const email = decoded.email;
+    const displayName = (decoded.name as string | undefined) ?? null;
+    const photoUrl = decoded.picture ?? null;
+
+    let user = await this.prisma.user.findUnique({
+      where: { firebaseUid: decoded.uid },
+    });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { firebaseUid: decoded.uid, email, displayName, photoUrl },
       });
+    } else if (
+      user.email !== email ||
+      user.displayName !== displayName ||
+      user.photoUrl !== photoUrl
+    ) {
+      user = await this.prisma.user.update({
+        where: { firebaseUid: decoded.uid },
+        data: { email, displayName, photoUrl },
+      });
+    }
+
+    (request as Request & { user: unknown }).user = user;
 
     return true;
   }

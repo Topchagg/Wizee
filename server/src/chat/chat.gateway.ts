@@ -51,22 +51,32 @@ export class ChatGateway implements OnGatewayConnection {
         throw new Error('Firebase account has no email');
       }
 
-      // Same self-healing upsert as FirebaseAuthGuard — a user's very first
-      // authenticated action could be opening the chat page.
-      const user = await this.prisma.user.upsert({
+      // Same self-healing provisioning as FirebaseAuthGuard — a user's very
+      // first authenticated action could be opening the chat page. Read
+      // first rather than unconditionally upsert, same reasoning as the
+      // guard: this runs on every socket connection, and the common case
+      // (existing user, nothing changed) shouldn't cost a write.
+      const email = decoded.email;
+      const displayName = (decoded.name as string | undefined) ?? null;
+      const photoUrl = decoded.picture ?? null;
+
+      let user = await this.prisma.user.findUnique({
         where: { firebaseUid: decoded.uid },
-        update: {
-          email: decoded.email,
-          displayName: (decoded.name as string | undefined) ?? null,
-          photoUrl: decoded.picture ?? null,
-        },
-        create: {
-          firebaseUid: decoded.uid,
-          email: decoded.email,
-          displayName: decoded.name as string | undefined,
-          photoUrl: decoded.picture,
-        },
       });
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: { firebaseUid: decoded.uid, email, displayName, photoUrl },
+        });
+      } else if (
+        user.email !== email ||
+        user.displayName !== displayName ||
+        user.photoUrl !== photoUrl
+      ) {
+        user = await this.prisma.user.update({
+          where: { firebaseUid: decoded.uid },
+          data: { email, displayName, photoUrl },
+        });
+      }
 
       (socket.data as ChatSocketData).userId = user.id;
       await socket.join(this.roomFor(user.id));

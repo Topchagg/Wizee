@@ -316,6 +316,28 @@ export class SubConceptsService {
     });
     if (direct.length === 0) return [];
 
+    // Playable Sub-concepts (the only kind that can ever be "passed") across
+    // EVERY prerequisite edge, gathered up front so completion is checked
+    // with a single batched Attempt query instead of one per edge.
+    const playableByPrereq = direct.map((edge) => ({
+      prereq: edge.requires,
+      playable: edge.requires.subConcepts.filter(
+        (sc) => sc.contents.length > 0,
+      ),
+    }));
+    const allPlayableIds = playableByPrereq.flatMap((p) =>
+      p.playable.map((sc) => sc.id),
+    );
+
+    const passed = allPlayableIds.length
+      ? await this.prisma.attempt.findMany({
+          where: { userId, subConceptId: { in: allPlayableIds }, passed: true },
+          select: { subConceptId: true },
+          distinct: ['subConceptId'],
+        })
+      : [];
+    const passedIds = new Set(passed.map((p) => p.subConceptId));
+
     const notes: {
       id: string;
       title: string;
@@ -323,23 +345,8 @@ export class SubConceptsService {
       slug: string;
       contentId: string;
     }[] = [];
-    for (const edge of direct) {
-      const prereq = edge.requires;
-      const playable = prereq.subConcepts.filter(
-        (sc) => sc.contents.length > 0,
-      );
+    for (const { prereq, playable } of playableByPrereq) {
       if (playable.length === 0) continue;
-
-      const passed = await this.prisma.attempt.findMany({
-        where: {
-          userId,
-          subConceptId: { in: playable.map((sc) => sc.id) },
-          passed: true,
-        },
-        select: { subConceptId: true },
-        distinct: ['subConceptId'],
-      });
-      const passedIds = new Set(passed.map((p) => p.subConceptId));
       const alreadyComplete = playable.every((sc) => passedIds.has(sc.id));
       if (alreadyComplete) continue;
 

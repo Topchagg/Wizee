@@ -24,6 +24,57 @@ export class PathsService {
       },
     });
 
+    // Completeness needs each path's Concept items' prerequisite edges, and
+    // each path's Theme items' own Concepts — fetched ONCE across every
+    // public Path here (not per path — see paths/paths.service.ts audit),
+    // so this whole method stays at 2 queries total no matter how many
+    // public Paths exist.
+    const allConceptIds = [
+      ...new Set(
+        paths.flatMap((p) =>
+          p.items
+            .filter((i) => i.itemType === 'CONCEPT' && i.conceptId)
+            .map((i) => i.conceptId!),
+        ),
+      ),
+    ];
+    const allThemeIds = [
+      ...new Set(
+        paths.flatMap((p) =>
+          p.items
+            .filter((i) => i.itemType === 'THEME' && i.themeId)
+            .map((i) => i.themeId!),
+        ),
+      ),
+    ];
+    const [edges, themeConcepts] = await Promise.all([
+      allConceptIds.length
+        ? this.prisma.conceptPrerequisite.findMany({
+            where: { conceptId: { in: allConceptIds } },
+            select: { conceptId: true, requiresConceptId: true },
+          })
+        : Promise.resolve([]),
+      allThemeIds.length
+        ? this.prisma.concept.findMany({
+            where: { themeId: { in: allThemeIds } },
+            select: { id: true, themeId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const requiredIdsByConceptId = new Map<string, string[]>();
+    for (const e of edges) {
+      const list = requiredIdsByConceptId.get(e.conceptId) ?? [];
+      list.push(e.requiresConceptId);
+      requiredIdsByConceptId.set(e.conceptId, list);
+    }
+    const conceptIdsByThemeId = new Map<string, string[]>();
+    for (const c of themeConcepts) {
+      const list = conceptIdsByThemeId.get(c.themeId) ?? [];
+      list.push(c.id);
+      conceptIdsByThemeId.set(c.themeId, list);
+    }
+
     // Readme 2.2: paths built only from Concepts (precise, not just "a whole
     // Theme") should be rated higher — a simple ratio stands in for the
     // "smarter algorithm" the readme defers to post-MVP. `completeness`
@@ -31,24 +82,39 @@ export class PathsService {
     // also covers its Concepts' direct prerequisites (as its own CONCEPT
     // item, or via a THEME item covering that prerequisite's Theme) scores
     // higher than one with the same conceptRatio but real gaps.
-    const scored = await Promise.all(
-      paths.map(async (path) => {
-        const itemCount = path.items.length;
-        const conceptItems = path.items.filter((i) => i.itemType === 'CONCEPT');
-        const conceptRatio =
-          itemCount === 0 ? 0 : conceptItems.length / itemCount;
-        const completeness = await this.getCompleteness(path.items);
-        return {
-          id: path.id,
-          title: path.title,
-          description: path.description,
-          createdBy: path.user.displayName ?? path.user.email,
-          itemCount,
-          conceptRatio,
-          completeness,
-        };
-      }),
-    );
+    const scored = paths.map((path) => {
+      const itemCount = path.items.length;
+      const conceptItems = path.items.filter((i) => i.itemType === 'CONCEPT');
+      const conceptRatio =
+        itemCount === 0 ? 0 : conceptItems.length / itemCount;
+
+      const covered = new Set(conceptItems.map((i) => i.conceptId!));
+      for (const item of path.items) {
+        if (item.itemType === 'THEME' && item.themeId) {
+          (conceptIdsByThemeId.get(item.themeId) ?? []).forEach((id) =>
+            covered.add(id),
+          );
+        }
+      }
+      const requiredIds = conceptItems.flatMap(
+        (i) => requiredIdsByConceptId.get(i.conceptId!) ?? [],
+      );
+      const completeness =
+        requiredIds.length === 0
+          ? 1
+          : requiredIds.filter((id) => covered.has(id)).length /
+            requiredIds.length;
+
+      return {
+        id: path.id,
+        title: path.title,
+        description: path.description,
+        createdBy: path.user.displayName ?? path.user.email,
+        itemCount,
+        conceptRatio,
+        completeness,
+      };
+    });
 
     return scored.sort(
       (a, b) =>
@@ -56,35 +122,6 @@ export class PathsService {
         b.completeness * 0.3 -
         (a.conceptRatio * 0.7 + a.completeness * 0.3),
     );
-  }
-
-  // Fraction of a path's Concept items' direct prerequisites that are also
-  // covered by the path. 1 when there's nothing to check (no Concept items,
-  // or none of them have prerequisites) — absence of a gap, not a perfect
-  // score being claimed.
-  private async getCompleteness(
-    items: {
-      itemType: string;
-      themeId: string | null;
-      conceptId: string | null;
-    }[],
-  ): Promise<number> {
-    const conceptIds = items
-      .filter((i) => i.itemType === 'CONCEPT' && i.conceptId)
-      .map((i) => i.conceptId!);
-    if (conceptIds.length === 0) return 1;
-
-    const coveredConceptIds = await this.getCoveredConceptIds(items);
-    const edges = await this.prisma.conceptPrerequisite.findMany({
-      where: { conceptId: { in: conceptIds } },
-      select: { requiresConceptId: true },
-    });
-    if (edges.length === 0) return 1;
-
-    const satisfied = edges.filter((e) =>
-      coveredConceptIds.has(e.requiresConceptId),
-    ).length;
-    return satisfied / edges.length;
   }
 
   // A path "covers" a Concept if it was added directly, or if a THEME item
