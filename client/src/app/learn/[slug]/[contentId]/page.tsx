@@ -25,8 +25,10 @@ export default function LearnPage() {
   const [maxStepIndex, setMaxStepIndex] = useState(0);
 
   // Every homework task is shown at once — state is keyed by task id rather
-  // than holding just "the current" answer/result.
-  const [hwAnswers, setHwAnswers] = useState<Record<string, string>>({});
+  // than holding just "the current" answer/result. Value is a plain string
+  // for a single-select question, or the set of checked options for a
+  // multiCorrect one (see handleSelectHw).
+  const [hwAnswers, setHwAnswers] = useState<Record<string, string | string[]>>({});
   const [hwResults, setHwResults] = useState<Record<string, TaskResult>>({});
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ export default function LearnPage() {
   // on the Test step only ever surfaces solved-on-screen tasks). Each task
   // carries its own contentId since they can come from different siblings.
   const [solvedTasks, setSolvedTasks] = useState<TestInfo[]>([]);
-  const [solvedAnswers, setSolvedAnswers] = useState<Record<string, string>>({});
+  const [solvedAnswers, setSolvedAnswers] = useState<Record<string, string | string[]>>({});
   const [solvedResults, setSolvedResults] = useState<Record<string, TaskResult>>({});
   const [submittingSolvedTaskId, setSubmittingSolvedTaskId] = useState<string | null>(null);
   const [loadingSolved, setLoadingSolved] = useState(false);
@@ -149,9 +151,17 @@ export default function LearnPage() {
     goToStep("test");
   };
 
+  // Single-select replaces the answer outright; multiCorrect toggles the
+  // clicked option's membership in the checked set instead.
+  const toggleAnswer = (task: TestInfo, choice: string, current: string | string[] | undefined): string | string[] => {
+    if (!task.multiCorrect) return choice;
+    const set = Array.isArray(current) ? current : [];
+    return set.includes(choice) ? set.filter((c) => c !== choice) : [...set, choice];
+  };
+
   const handleSubmitHw = async (task: TestInfo) => {
     const answer = hwAnswers[task.id];
-    if (!detail?.content || answer === undefined) return;
+    if (!detail?.content || answer === undefined || (Array.isArray(answer) && answer.length === 0)) return;
     setSubmittingTaskId(task.id);
     setError(null);
     try {
@@ -172,7 +182,7 @@ export default function LearnPage() {
 
   const handleSubmitSolved = async (task: TestInfo) => {
     const answer = solvedAnswers[task.id];
-    if (!detail?.content || answer === undefined || !task.contentId) return;
+    if (!detail?.content || answer === undefined || (Array.isArray(answer) && answer.length === 0) || !task.contentId) return;
     setSubmittingSolvedTaskId(task.id);
     setError(null);
     try {
@@ -305,13 +315,13 @@ export default function LearnPage() {
             hwAnswers={hwAnswers}
             hwResults={hwResults}
             submittingTaskId={submittingTaskId}
-            onSelectHw={(taskId, choice) => setHwAnswers((prev) => ({ ...prev, [taskId]: choice }))}
+            onSelectHw={(task, choice) => setHwAnswers((prev) => ({ ...prev, [task.id]: toggleAnswer(task, choice, prev[task.id]) }))}
             onSubmitHw={(task) => void handleSubmitHw(task)}
             solvedTasks={solvedTasks}
             solvedAnswers={solvedAnswers}
             solvedResults={solvedResults}
             submittingSolvedTaskId={submittingSolvedTaskId}
-            onSelectSolved={(taskId, choice) => setSolvedAnswers((prev) => ({ ...prev, [taskId]: choice }))}
+            onSelectSolved={(task, choice) => setSolvedAnswers((prev) => ({ ...prev, [task.id]: toggleAnswer(task, choice, prev[task.id]) }))}
             onSubmitSolved={(task) => void handleSubmitSolved(task)}
             solvedOnScreenCount={content.solvedOnScreenCount}
             allHwAttempted={allHwAttempted}

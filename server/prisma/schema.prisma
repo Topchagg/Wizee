@@ -89,8 +89,12 @@ model User {
   id          String   @id @default(cuid())
   firebaseUid String   @unique
   email       String   @unique
+  // Seeded from the Google profile on first sign-in (see FirebaseAuthGuard),
+  // then user-owned from that point on — editable via Profile settings and
+  // never re-synced from Google afterward.
   displayName String?
   photoUrl    String?
+  bio         String?
   // Null until the post-sign-in "what's your main purpose" prompt is
   // answered — see Role above.
   role        Role?

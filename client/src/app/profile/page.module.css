@@ -1,0 +1,74 @@
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+.formCard {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 520px;
+}
+
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.photoPreview {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  overflow: hidden;
+}
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoInitials {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.photoField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fileInput {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.progress {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.savedText {
+  font-size: 13px;
+  color: var(--color-success);
+  font-weight: 600;
+}

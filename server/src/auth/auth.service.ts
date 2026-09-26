@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Role } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +15,16 @@ export class AuthService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { role },
+    });
+  }
+
+  // Profile settings — displayName/photoUrl start seeded from Google (see
+  // FirebaseAuthGuard) but are user-owned from here on. Only patches fields
+  // actually sent, so e.g. saving a new bio doesn't require resending name.
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dto,
     });
   }
 }

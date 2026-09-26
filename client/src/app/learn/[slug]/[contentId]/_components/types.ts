@@ -3,6 +3,10 @@ export type TestInfo = {
   type: string;
   prompt: string;
   choices: unknown;
+  // True when this question has more than one correct option — the answer
+  // card renders checkboxes (multi-select) instead of the default
+  // single-select buttons. See server's toContentDto/getSolvedOnScreenTasks.
+  multiCorrect?: boolean;
   contentId?: string;
   // Only present on this content's own homework tasks (toContentDto) — never
   // on solved-on-screen tasks rolled in from a sibling content's own

@@ -1,3 +1,11 @@
+/* Wider than the shared .page-shell (720px) — this form has a 4-column tree
+   picker and multi-choice option rows that feel cramped at the default
+   width. The :global() pairing beats .page-shell's specificity regardless
+   of CSS load order. */
+:global(.page-shell).pageShellWide {
+  max-width: 900px;
+}
+
 .title {
   font-size: 26px;
   font-weight: 700;
@@ -7,28 +15,91 @@
 .subtitle {
   font-size: 14px;
   line-height: 1.6;
-  margin-top: 6px;
+  margin-top: 8px;
   max-width: 62ch;
 }
 
 .formCard {
-  padding: 28px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
+}
+
+.pickerWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pickerDivider {
+  font-size: 12px;
+  color: var(--color-text-faint);
+  text-align: center;
+  padding: 4px 0;
 }
 
 .pickerGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.searchHit {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.searchHit:hover {
+  border-color: var(--color-border-strong, var(--color-border));
+}
+
+.searchHitInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.searchHitName {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.searchHitBreadcrumb {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.searchHitCount {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .uploadGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px;
+  gap: 18px;
+  padding: 20px;
   background: var(--color-surface-alt);
   border-radius: var(--radius-md);
 }
@@ -58,9 +129,18 @@
 .tasksSection {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 20px;
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
+}
+
+.taskGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
 }
 
 .sectionTitle {
@@ -74,43 +154,104 @@
 .tasksHint {
   font-size: 13px;
   line-height: 1.4;
-  margin-top: -4px;
+  margin-top: 4px;
 }
 
 .taskCard {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
-.taskRow {
-  display: grid;
-  grid-template-columns: 140px 1fr 1fr 1fr;
+.taskTopRow {
+  display: flex;
+  gap: 10px;
+}
+
+.taskTypeSelect {
+  flex: 0 0 190px;
+}
+
+.choicesBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+}
+
+.choicesLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.choiceRow {
+  display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.choiceCheckbox {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.choiceCheckbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.choiceRemoveBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.choiceRemoveBtn:hover:not(:disabled) {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.choiceRemoveBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.answerField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .taskMeta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.homeworkToggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.homeworkToggle input {
-  width: auto;
+  justify-content: flex-end;
 }
 
 .successCard {
@@ -151,7 +292,11 @@
     grid-template-columns: 1fr;
   }
 
-  .taskRow {
-    grid-template-columns: 1fr;
+  .taskTopRow {
+    flex-direction: column;
+  }
+
+  .taskTypeSelect {
+    flex: 1 1 auto;
   }
 }

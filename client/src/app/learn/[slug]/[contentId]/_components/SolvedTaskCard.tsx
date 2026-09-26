@@ -16,13 +16,16 @@ export function SolvedTaskCard({
 }: {
   task: TestInfo;
   slug: string;
-  answer: string | undefined;
+  answer: string | string[] | undefined;
   result: TaskResult | undefined;
   submitting: boolean;
   onSelect: (choice: string) => void;
   onSubmit: () => void;
 }) {
   const choices = Array.isArray(task.choices) ? (task.choices as string[]) : [];
+  const selectedSet = Array.isArray(answer) ? answer : [];
+  const isSelected = (choice: string) => (task.multiCorrect ? selectedSet.includes(choice) : answer === choice);
+  const canSubmit = task.multiCorrect ? selectedSet.length > 0 : answer !== undefined;
   return (
     <div className={`card ${styles.practice}`}>
       <div className={styles.practiceHeader}>
@@ -34,12 +37,13 @@ export function SolvedTaskCard({
         )}
       </div>
       <p className={styles.prompt}>{task.prompt}</p>
+      {task.multiCorrect && <p className={styles.contentStat}>Select all that apply.</p>}
       <div className={styles.choices}>
         {choices.map((choice) => (
           <button
             key={choice}
             type="button"
-            className={answer === choice ? styles.choiceSelected : styles.choice}
+            className={isSelected(choice) ? styles.choiceSelected : styles.choice}
             onClick={() => onSelect(choice)}
             disabled={submitting}
           >
@@ -47,7 +51,7 @@ export function SolvedTaskCard({
           </button>
         ))}
       </div>
-      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={answer === undefined || submitting}>
+      <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={!canSubmit || submitting}>
         {submitting ? "Submitting…" : "Submit"}
       </button>
       {result && (

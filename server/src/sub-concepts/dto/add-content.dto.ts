@@ -25,10 +25,6 @@ export class AddContentDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
-  creatorName?: string;
-
-  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TaskDto)

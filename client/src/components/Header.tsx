@@ -21,6 +21,7 @@ const MENU_LINKS = [
   { href: "/progress", label: "Progress" },
   { href: "/my-paths", label: "My Paths", tutorOnly: true },
   { href: "/add-content", label: "Add Content", tutorOnly: true },
+  { href: "/profile", label: "Profile settings" },
 ];
 
 export function Header() {
@@ -29,7 +30,12 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const initials = (user?.displayName ?? user?.email ?? "?").trim().charAt(0).toUpperCase();
+  // appUser (our DB row, editable via Profile settings) takes priority over
+  // the raw Firebase/Google profile — once a user customizes their name or
+  // picture, that's what should show here, not what Google has on file.
+  const displayName = appUser?.displayName ?? user?.displayName ?? user?.email;
+  const photoUrl = appUser?.photoUrl ?? user?.photoURL ?? null;
+  const initials = (displayName ?? "?").trim().charAt(0).toUpperCase();
   const navLinks = NAV_LINKS.filter((link) => !link.superAdminOnly || appUser?.role === "SUPERADMIN");
   const menuLinks = MENU_LINKS.filter((link) => !link.tutorOnly || canCreate(appUser?.role));
 
@@ -85,9 +91,14 @@ export function Header() {
                 onClick={() => setMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                title={user.displayName ?? user.email ?? undefined}
+                title={displayName ?? undefined}
               >
-                {initials}
+                {photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- avatar URLs are arbitrary Firebase Storage/Google hosts, not worth an image-loader allowlist entry.
+                  <img src={photoUrl} alt="" className={styles.avatarImg} />
+                ) : (
+                  initials
+                )}
               </button>
               {menuOpen && (
                 <div className={styles.menu} role="menu">

@@ -52,6 +52,13 @@ export class FirebaseAuthGuard implements CanActivate {
     // on every one of them (even when nothing changed since last time, the
     // overwhelmingly common case) turns the hottest path in the app into a
     // row-contention hazard for no reason.
+    //
+    // displayName/photoUrl are seeded from the Google profile only at
+    // creation — once the row exists they're user-owned (editable via
+    // Profile settings, PATCH /auth/profile) and must never be silently
+    // overwritten by whatever Google's token happens to carry on a later
+    // request. Only email is kept in sync on every request, since it's the
+    // app's uniqueness key.
     const email = decoded.email;
     const displayName = (decoded.name as string | undefined) ?? null;
     const photoUrl = decoded.picture ?? null;
@@ -63,14 +70,10 @@ export class FirebaseAuthGuard implements CanActivate {
       user = await this.prisma.user.create({
         data: { firebaseUid: decoded.uid, email, displayName, photoUrl },
       });
-    } else if (
-      user.email !== email ||
-      user.displayName !== displayName ||
-      user.photoUrl !== photoUrl
-    ) {
+    } else if (user.email !== email) {
       user = await this.prisma.user.update({
         where: { firebaseUid: decoded.uid },
-        data: { email, displayName, photoUrl },
+        data: { email },
       });
     }
 

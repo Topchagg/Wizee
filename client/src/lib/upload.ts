@@ -24,8 +24,7 @@ export function getVideoDuration(file: File): Promise<number> {
 // Direct browser -> Firebase Storage upload (no bytes pass through the Nest
 // server). Authorization is enforced by Storage security rules, which check
 // the caller's Firebase Auth session — see storage.rules at the repo root.
-export function uploadVideo(file: File, folder: "main" | "preview", onProgress?: (pct: number) => void): Promise<string> {
-  const path = `videos/${folder}/${Date.now()}-${crypto.randomUUID()}-${file.name}`;
+function uploadToStorage(path: string, file: File, onProgress?: (pct: number) => void): Promise<string> {
   const storageRef = ref(getFirebaseStorage(), path);
   const task = uploadBytesResumable(storageRef, file);
 
@@ -37,4 +36,16 @@ export function uploadVideo(file: File, folder: "main" | "preview", onProgress?:
       () => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject),
     );
   });
+}
+
+export function uploadVideo(file: File, folder: "main" | "preview", onProgress?: (pct: number) => void): Promise<string> {
+  const path = `videos/${folder}/${Date.now()}-${crypto.randomUUID()}-${file.name}`;
+  return uploadToStorage(path, file, onProgress);
+}
+
+// Profile picture upload — see storage.rules for the avatars/ path's own
+// size/content-type limits (much smaller than video).
+export function uploadImage(file: File, onProgress?: (pct: number) => void): Promise<string> {
+  const path = `avatars/${Date.now()}-${crypto.randomUUID()}-${file.name}`;
+  return uploadToStorage(path, file, onProgress);
 }

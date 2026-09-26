@@ -16,7 +16,14 @@ import { apiFetch } from "@/lib/api";
 // enum in schema.prisma). Treated as tutor-or-above wherever the app checks
 // for TUTOR — see canCreate below.
 export type Role = "TUTOR" | "LEARNER" | "SUPERADMIN";
-export type AppUser = { id: string; email: string; displayName: string | null; role: Role | null };
+export type AppUser = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  photoUrl: string | null;
+  bio: string | null;
+  role: Role | null;
+};
 
 // The single place every "can this user create paths/content" check goes
 // through, so SUPERADMIN doesn't need special-casing at each call site.

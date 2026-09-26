@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
@@ -19,11 +27,17 @@ export class SubConceptsController {
     return this.subConcepts.getFirst();
   }
 
-  // Must stay registered before ':id' below — Nest/Express matches literal
-  // segments in declaration order, and ':id' would otherwise swallow 'tree'.
+  // 'tree' and 'search' must stay registered before ':id' below — Nest/Express
+  // matches literal segments in declaration order, and ':id' would otherwise
+  // swallow them.
   @Get('tree')
   getTree() {
     return this.subConcepts.getTree();
+  }
+
+  @Get('search')
+  search(@Query('q') q: string) {
+    return this.subConcepts.search(q ?? '');
   }
 
   @Get(':id')

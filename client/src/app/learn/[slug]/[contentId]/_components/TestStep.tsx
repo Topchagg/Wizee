@@ -33,16 +33,16 @@ export function TestStep({
 }: {
   slug: string;
   homeworkTasks: TestInfo[];
-  hwAnswers: Record<string, string>;
+  hwAnswers: Record<string, string | string[]>;
   hwResults: Record<string, TaskResult>;
   submittingTaskId: string | null;
-  onSelectHw: (taskId: string, choice: string) => void;
+  onSelectHw: (task: TestInfo, choice: string) => void;
   onSubmitHw: (task: TestInfo) => void;
   solvedTasks: TestInfo[];
-  solvedAnswers: Record<string, string>;
+  solvedAnswers: Record<string, string | string[]>;
   solvedResults: Record<string, TaskResult>;
   submittingSolvedTaskId: string | null;
-  onSelectSolved: (taskId: string, choice: string) => void;
+  onSelectSolved: (task: TestInfo, choice: string) => void;
   onSubmitSolved: (task: TestInfo) => void;
   solvedOnScreenCount: number;
   allHwAttempted: boolean;
@@ -69,7 +69,7 @@ export function TestStep({
               answer={solvedAnswers[task.id]}
               result={solvedResults[task.id]}
               submitting={submittingSolvedTaskId === task.id}
-              onSelect={(choice) => onSelectSolved(task.id, choice)}
+              onSelect={(choice) => onSelectSolved(task, choice)}
               onSubmit={() => onSubmitSolved(task)}
             />
           ))}
@@ -103,7 +103,7 @@ export function TestStep({
                 answer={hwAnswers[task.id]}
                 result={hwResults[task.id]}
                 submitting={submittingTaskId === task.id}
-                onSelect={(choice) => onSelectHw(task.id, choice)}
+                onSelect={(choice) => onSelectHw(task, choice)}
                 onSubmit={() => onSubmitHw(task)}
               />
             ))}

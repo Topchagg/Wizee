@@ -3,6 +3,7 @@ import type { User } from '../../generated/prisma/client';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { SetRoleDto } from './dto/set-role.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FirebaseAuthGuard } from './firebase-auth.guard';
 
 @UseGuards(FirebaseAuthGuard)
@@ -20,5 +21,10 @@ export class AuthController {
   @Patch('role')
   setRole(@CurrentUser() user: User, @Body() dto: SetRoleDto) {
     return this.auth.setRole(user.id, dto.role);
+  }
+
+  @Patch('profile')
+  updateProfile(@CurrentUser() user: User, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateProfile(user.id, dto);
   }
 }

@@ -37,6 +37,47 @@ export class SubConceptsService {
     };
   }
 
+  // Sub-concept-only search across the whole tree, for the add-content
+  // picker — a tutor filling a slot usually already knows the Sub-concept's
+  // name and shouldn't have to walk Subject -> Theme -> Concept -> Sub-concept
+  // through four cascading selects to find it. Backed by SearchTable (see its
+  // schema comment) rather than a live SubConcept query, same approach as
+  // PathsService.search — unscoped by subjectId, unlike that one, since a
+  // tutor picking a slot to fill isn't already anchored to one Subject.
+  async search(query: string) {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const rows = await this.prisma.searchTable.findMany({
+      where: {
+        type: 'SUBCONCEPT',
+        name: { contains: trimmed, mode: 'insensitive' },
+      },
+      orderBy: { name: 'asc' },
+      take: 20,
+    });
+    if (rows.length === 0) return [];
+
+    // Content count per hit so a tutor can tell an empty slot from one that
+    // already has several explanations, without a follow-up click.
+    const counts = await this.prisma.subConcept.findMany({
+      where: { id: { in: rows.map((row) => row.idLink) } },
+      select: { id: true, _count: { select: { contents: true } } },
+    });
+    const countById = new Map(counts.map((c) => [c.id, c._count.contents]));
+
+    return rows.map((row) => ({
+      subConceptId: row.idLink,
+      name: row.name,
+      subjectId: row.subjectId,
+      themeId: row.themeId,
+      themeTitle: row.themeTitle,
+      conceptId: row.conceptId,
+      conceptTitle: row.conceptTitle,
+      contentCount: countById.get(row.idLink) ?? 0,
+    }));
+  }
+
   // Full Subject -> Theme -> Concept -> SubConcept structure for the "add
   // content" picker. Unlike the path-builder's tree (paths/tree, which stops
   // at Concept per readme 2.2), this goes one level deeper since a Teacher is
@@ -109,25 +150,29 @@ export class SubConceptsService {
   }
 
   // The only content-creation capability a Teacher has: contribute a bundle
-  // (video + optional preview/description/tasks) to an EXISTING Sub-concept
-  // slot. Does not create/modify the tree itself. Recording the real
-  // submitting user as creatorId (not just their typed creatorName) is what
-  // lets a learner message the actual teacher from /learn.
+  // (video + optional description, plus mandatory HW/SW tasks) to an
+  // EXISTING Sub-concept slot. Does not create/modify the tree itself.
+  // creatorName is a snapshot
+  // of the account's own profile name at submission time (see Profile
+  // settings) — there's no per-submission override, and recording the real
+  // submitting user as creatorId is what lets a learner message the actual
+  // teacher from /learn.
   async addContent(subConceptIdOrSlug: string, user: User, dto: AddContentDto) {
     const subConceptId = await this.resolveSubConceptId(subConceptIdOrSlug);
 
-    // A teacher must categorize BOTH pools whenever tasks are submitted at
-    // all — rolling needs a homework task to start on and a solved-on-screen
-    // task to roll into, so a content bundle with only one pool would make
-    // the roll flow structurally unusable for this content.
-    if (dto.tasks && dto.tasks.length > 0) {
-      const hasHomework = dto.tasks.some((task) => !task.isSolvedOnScreen);
-      const hasSolvedOnScreen = dto.tasks.some((task) => task.isSolvedOnScreen);
-      if (!hasHomework || !hasSolvedOnScreen) {
-        throw new BadRequestException(
-          'Provide at least one homework task and one "solved on-screen" task so rolling works in both directions.',
-        );
-      }
+    // Both pools are mandatory, not just mutually-required when present —
+    // rolling needs a homework task to start on and a solved-on-screen task
+    // to roll into, so a content bundle can't be usable at all without both.
+    const hasHomework = (dto.tasks ?? []).some(
+      (task) => !task.isSolvedOnScreen,
+    );
+    const hasSolvedOnScreen = (dto.tasks ?? []).some(
+      (task) => task.isSolvedOnScreen,
+    );
+    if (!hasHomework || !hasSolvedOnScreen) {
+      throw new BadRequestException(
+        'Provide at least one homework task and one "solved on-screen" task so rolling works in both directions.',
+      );
     }
 
     const existingCount = await this.prisma.subConceptContent.count({
@@ -140,7 +185,7 @@ export class SubConceptsService {
         video: dto.video,
         previewVideo: dto.previewVideo,
         description: dto.description,
-        creatorName: dto.creatorName ?? user.displayName ?? user.email,
+        creatorName: user.displayName ?? user.email,
         creatorId: user.id,
         isPrimary: existingCount === 0,
         tasks: dto.tasks
@@ -379,7 +424,14 @@ export class SubConceptsService {
       throw new NotFoundException('Task not found for this content');
     }
 
-    const passed = JSON.stringify(dto.answer) === JSON.stringify(test.answer);
+    // Sorted before comparing so a multi-correct question (test.answer is an
+    // array — see toContentDto's multiCorrect) grades the same regardless of
+    // the order the learner happened to check the boxes in.
+    const normalize = (value: unknown) =>
+      Array.isArray(value)
+        ? JSON.stringify((value as unknown[]).slice().sort())
+        : JSON.stringify(value);
+    const passed = normalize(dto.answer) === normalize(test.answer);
 
     const attempt = await this.prisma.attempt.create({
       data: {
@@ -442,6 +494,9 @@ export class SubConceptsService {
       type: t.type,
       prompt: t.prompt,
       choices: t.choices,
+      // Tells the client whether to render checkboxes (2+ correct options)
+      // or the original single-select — see submitAttempt's normalize.
+      multiCorrect: Array.isArray(t.answer),
       contentId: t.contentId,
     }));
   }
@@ -566,6 +621,7 @@ export class SubConceptsService {
         type: string;
         prompt: string;
         choices: unknown;
+        answer: unknown;
         isSolvedOnScreen: boolean;
       }[];
     },
@@ -657,6 +713,7 @@ export class SubConceptsService {
           type: t.type,
           prompt: t.prompt,
           choices: t.choices,
+          multiCorrect: Array.isArray(t.answer),
           attemptedCount: taskAttemptedCount,
           passRate:
             taskAttemptedCount === 0
